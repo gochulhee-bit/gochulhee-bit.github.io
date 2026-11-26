@@ -365,6 +365,7 @@ function renderList() {
   if (!records) return;
   const info = dueToday(current.date);
   const days = info ? info.dates.map(iso) : [];
+  fillDistricts(records.filter(r => days.includes(r.end)));   // 점검종료일 먼저, 그다음 관할구
   const kind = $("kind").value, gu = $("gu").value;
   matches = records.filter(r => days.includes(r.end) && (!kind || kindOf(r.kind) === kind) && (!gu || r.gu === gu))
     .sort((a, b) => a.gu.localeCompare(b.gu, "ko") || a.name.localeCompare(b.name, "ko"));
@@ -385,8 +386,8 @@ function renderList() {
   }));
   $("xtable").hidden = $("xsave").hidden = !matches.length;
 }
-function fillDistricts() {          // 파일의 도로명 주소에 있는 서울시 구만 표시
-  const list = SEOUL_GU.filter(g => (records || []).some(r => r.gu === g));
+function fillDistricts(rows = []) { // 점검종료일로 거른 자료의 도로명 주소에 있는 서울시 구만 표시
+  const list = SEOUL_GU.filter(g => rows.some(r => r.gu === g));
   const chosen = $("gu").value;
   $("gu").replaceChildren(new Option("전체", ""), ...list.map(g => new Option(g, g)));
   $("gu").value = list.includes(chosen) ? chosen : "";
@@ -401,7 +402,7 @@ $("file").addEventListener("change", async () => {
     const result = await readList(file);
     if (file !== $("file").files[0]) return;
     if (!result) throw new Error("missing:점검종료일");
-    records = result; fillDistricts(); renderList();
+    records = result; renderList();
   } catch (e) {
     $("found").textContent = e.message.startsWith("missing:") ? `파일에서 '${e.message.slice(8)}' 열을 찾지 못했습니다.`
       : "파일을 읽지 못했습니다. .csv 또는 .xlsx 형식으로 저장한 뒤 다시 선택해 주세요.";
