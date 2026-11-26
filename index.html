@@ -100,10 +100,6 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
     <thead><tr><th>구분</th><th>이행 시작일</th><th>이행 종료일</th><th>결과보고 완료기한</th></tr></thead>
     <tbody id="rows"></tbody>
   </table></div>
-  <div class="buttons">
-    <button type="button" id="csv">📥 결과 CSV 다운로드</button>
-    <button type="button" id="txt">📄 텍스트 리포트 저장</button>
-  </div>
   <p class="small" id="msg" role="status"></p>
   <textarea id="fallback" aria-label="저장할 내용" readonly hidden></textarea>
   <hr>
@@ -249,14 +245,6 @@ async function save(filename, data) {
   try { await api.save({ filename, data }); msg.textContent = ""; }
   catch (e) { if (e?.code === "declined") msg.textContent = "저장을 취소했습니다."; else showText(); }
 }
-$("csv").onclick = () => save(`schedule_${current.date}.csv`, "﻿" +
-  [["구분","이행 시작일","이행 종료일","결과보고 완료기한"], ...current.rows].map(r => r.join(",")).join("\r\n"));
-$("txt").onclick = () => save(`schedule_${current.date}.txt`, [
-  "자체점검", `기준 날짜: ${current.date}`, "",
-  "[제출 대상 보고서]", current.due, "",
-  "[이행완료 보고서 제출기간]",
-  ...current.rows.map(r => `${r[0]}: 이행 ${r[1]} ~ ${r[2]}, 결과보고 완료기한 ${r[3]}`), "",
-  `반영된 휴일: ${NOTES[current.date.slice(0,4)]}`].join("\r\n"));
 
 // ---- 점검 목록 파일 읽기 ----
 function parseCSV(text) {
