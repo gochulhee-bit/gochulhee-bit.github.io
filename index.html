@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>이행 일정 점검표</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>자체점검</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&display=swap">
 <style>
@@ -37,7 +37,7 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 </style>
 
 <main>
-  <h1>📋 이행 일정 및 미제출 점검표</h1>
+  <h1>📋 자체점검</h1>
   <p style="font-size:12.5px"><b>기준 일시:</b> <span id="now"></span></p>
   <label class="label" for="base">기준 날짜 선택</label>
   <div class="date"><span id="shown"></span><input type="date" id="base" min="2026-02-01" max="2027-11-30"></div>
@@ -176,7 +176,7 @@ async function save(filename, data) {
 $("csv").onclick = () => save(`schedule_${current.date}.csv`, "﻿" +
   [["구분","이행 시작일","이행 종료일","결과보고 완료기한"], ...current.rows].map(r => r.join(",")).join("\r\n"));
 $("txt").onclick = () => save(`schedule_${current.date}.txt`, [
-  "이행 일정 및 미제출 점검표", `기준 날짜: ${current.date}`, "",
+  "자체점검", `기준 날짜: ${current.date}`, "",
   "[제출 대상 보고서]", current.due, "",
   "[미제출 보고서 점검 기준]", `${current.cutoff} 이전에 종료된 점검 건의 보고서 미제출 확인`, "",
   "[신규 이행 일정]",
