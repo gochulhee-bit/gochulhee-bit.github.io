@@ -39,6 +39,9 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 .filters select:focus-visible{border-color:var(--accent)}
 #found{font-size:15px;font-weight:700;margin:6px 0 10px;word-break:keep-all}
 #xtable table{min-width:760px}
+#xtable button{padding:0 8px;font-size:12px;line-height:18px;border-radius:6px}
+#xtable tr.received td{background:#6b6e76;color:#fff;border-color:#85888f}
+#xtable tr.received button{background:transparent;color:#fff;border-color:#fff;font-weight:700}
 #xsave{margin-top:12px}
 .query{border:1px solid var(--line);border-radius:8px;padding:12px 15px;font-size:12.5px;margin-bottom:6px}
 .query b{font-size:15px;font-variant-numeric:tabular-nums}
@@ -152,7 +155,7 @@ main{padding-bottom:76px}
   <p id="found" role="status">파일을 선택하면 제출 대상이 표시됩니다.</p>
   <p class="small" id="xnote"></p>
   <div class="table" id="xtable" hidden><table>
-    <thead><tr><th>점검종료일</th><th>점검구분</th><th>대상물명</th><th>도로명 주소</th><th>업체명</th><th>업체 연락처</th></tr></thead>
+    <thead><tr><th>점검종료일</th><th>점검구분</th><th>대상물명</th><th>도로명 주소</th><th>업체명</th><th>업체 연락처</th><th>접수</th></tr></thead>
     <tbody id="xrows"></tbody>
   </table></div>
   <button type="button" id="xsave" hidden>📥 제출 대상 CSV 다운로드</button>
@@ -380,6 +383,26 @@ const MAX_FILES = 3, STORE = "selfcheck.files.v1";
 let files = [], records = null, matches = [];
 const kindOf = k => ["최초", "종합", "작동"].find(x => k.includes(x)) || "";
 const fields = r => [r.end, r.kind, r.name, r.address, r.company, r.phone];
+const RECEIVED = "selfcheck.received.v1";
+let received = new Set();
+try { received = new Set(JSON.parse(localStorage.getItem(RECEIVED) || "[]")); } catch {}
+function saveReceived() {
+  try {
+    if (received.size) localStorage.setItem(RECEIVED, JSON.stringify([...received]));
+    else localStorage.removeItem(RECEIVED);
+  } catch { $("filemsg").textContent = "접수 표시를 저장하지 못했습니다. 새로고침하면 사라집니다."; }
+}
+function receiveCell(tr, key) {      // 행 끝의 접수 버튼 (다시 누르면 취소)
+  const b = document.createElement("button"); b.type = "button";
+  const paint = () => {
+    const done = received.has(key);
+    tr.classList.toggle("received", done);
+    b.textContent = done ? "접수완료" : "접수";
+    b.title = done ? "다시 누르면 접수를 취소합니다" : "";
+  };
+  b.onclick = () => { received.has(key) ? received.delete(key) : received.add(key); saveReceived(); paint(); };
+  tr.insertCell().append(b); paint();
+}
 function renderList() {
   if (!records) return;
   const info = dueToday(current.date);
@@ -399,9 +422,13 @@ function renderList() {
     repeated ? `파일 간 중복 ${repeated}건 제외` : "",
     bad ? `주의: 점검종료일을 읽지 못한 ${bad}건은 검색에서 빠졌습니다.` : ""
   ].filter(Boolean).join(" · ");
+  const nth = new Map();             // 내용이 똑같은 행도 따로 표시
   $("xrows").replaceChildren(...matches.map(r => {
     const tr = document.createElement("tr");
     fields(r).forEach(v => tr.insertCell().textContent = v);
+    const id = JSON.stringify([r.end, r.kind, r.name, r.address, r.company, r.phone]);
+    nth.set(id, (nth.get(id) || 0) + 1);
+    receiveCell(tr, `${id}#${nth.get(id)}`);
     return tr;
   }));
   $("xtable").hidden = $("xsave").hidden = !matches.length;
@@ -476,7 +503,7 @@ $("file").addEventListener("change", () => {
   $("file").value = "";
   if (chosen.length) queue = queue.then(() => addFiles(chosen));
 });
-$("clear").onclick = () => { files = []; persist(); $("filemsg").textContent = ""; showFiles(); };
+$("clear").onclick = () => { files = []; received.clear(); $("filemsg").textContent = ""; saveReceived(); persist(); showFiles(); };
 function restore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE) || "[]");
