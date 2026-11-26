@@ -46,7 +46,7 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   <p class="small">제출일로부터 15영업일 전에 점검한 건 (토·일요일, 공휴일 제외)</p>
   <details><summary>날짜 세는 과정 보기</summary><ol id="count" reversed></ol></details>
   <hr>
-  <h2>📅 <span id="heading">금일</span> 기준 신규 이행 일정</h2>
+  <h2>📅 이행완료 보고서 제출기간</h2>
   <div class="table"><table>
     <thead><tr><th></th><th>구분</th><th>이행 시작일</th><th>이행 종료일</th><th>결과보고 완료기한</th></tr></thead>
     <tbody id="rows"></tbody>
@@ -91,7 +91,7 @@ const withDay = d => `${iso(d)} (${"일월화수목금토"[d.getUTCDay()]})`;
 function calc(s) {
   const base = parse(s);
   return {
-    rows: [["단기 조치", 10], ["중기 조치", 20]].map(([name, days]) => {
+    rows: [["10일", 10], ["20일", 20]].map(([name, days]) => {
       const end = add(base, days - 1);   // 시작일 포함
       return [name, s, iso(end), withDay(shiftBiz(end, 10))];
     })
@@ -109,7 +109,6 @@ function tick() {
 function render(s) {
   current = { date: s, ...calc(s) };
   $("shown").textContent = s.replaceAll("-", "/");
-  $("heading").textContent = s === kst().slice(0, 10) ? "금일" : s;
   $("rows").replaceChildren(...current.rows.map((r, i) => {
     const tr = document.createElement("tr");
     [i, ...r].forEach(v => tr.insertCell().textContent = v);
@@ -171,7 +170,7 @@ $("csv").onclick = () => save(`schedule_${current.date}.csv`, "﻿" +
 $("txt").onclick = () => save(`schedule_${current.date}.txt`, [
   "자체점검", `기준 날짜: ${current.date}`, "",
   "[제출 대상 보고서]", current.due, "",
-  "[신규 이행 일정]",
+  "[이행완료 보고서 제출기간]",
   ...current.rows.map(r => `${r[0]}: 이행 ${r[1]} ~ ${r[2]}, 결과보고 완료기한 ${r[3]}`), "",
   `반영된 휴일: ${NOTES[current.date.slice(0,4)]}`].join("\r\n"));
 </script>
