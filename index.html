@@ -32,6 +32,14 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 #msg{margin-top:8px;min-height:1em}
 #fallback{box-sizing:border-box;width:100%;height:140px;font:12px/1.5 monospace}
 .holidays{font-size:12px;line-height:1.75;margin-bottom:12px}
+.upload{display:block;box-sizing:border-box;width:100%;background:var(--field);border-radius:8px;padding:10px;font:13px var(--font)}
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.filters label{font-size:12px}
+.filters select{display:block;width:100%;margin-top:4px;background:var(--field);color:var(--fg);border:1px solid transparent;border-radius:8px;padding:6px 8px;font:13px var(--font)}
+.filters select:focus-visible{border-color:var(--accent)}
+#found{font-size:15px;font-weight:700;margin:6px 0 10px;word-break:keep-all}
+#xtable table{min-width:760px}
+#xsave{margin-top:12px}
 </style>
 
 <main>
@@ -44,6 +52,22 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   <p class="headline" id="due"></p>
   <p class="small">제출일로부터 15영업일 전에 점검한 건 (토·일요일, 공휴일 제외)</p>
   <details><summary>날짜 세는 과정 보기</summary><ol id="count" reversed></ol></details>
+  <hr>
+  <h2>📂 엑셀로 제출 대상 찾기</h2>
+  <label class="label" for="file">점검 목록 파일 (.csv 또는 .xlsx)</label>
+  <input class="upload" type="file" id="file" accept=".csv,.xlsx,.xlsm">
+  <p class="small">파일은 이 브라우저 안에서만 읽으며 서버로 전송하지 않습니다.</p>
+  <div class="filters">
+    <label for="kind">점검구분<select id="kind"><option value="">전체</option><option>작동</option><option>종합</option><option>최초</option></select></label>
+    <label for="gu">관할구<select id="gu"><option value="">전체</option><option>서대문구</option><option>마포구</option><option>은평구</option></select></label>
+  </div>
+  <p id="found" role="status">파일을 선택하면 제출 대상이 표시됩니다.</p>
+  <p class="small" id="xnote"></p>
+  <div class="table" id="xtable" hidden><table>
+    <thead><tr><th>대상물명</th><th>점검구분</th><th>관할구</th><th>점검종료일</th><th>업체명</th><th>업체 연락처</th><th>도로명 주소</th></tr></thead>
+    <tbody id="xrows"></tbody>
+  </table></div>
+  <button type="button" id="xsave" hidden>📥 제출 대상 CSV 다운로드</button>
   <hr>
   <h2>📅 이행완료 보고서 제출기간</h2>
   <div class="table"><table>
@@ -115,6 +139,7 @@ function render(s) {
   }));
   $("hol").textContent = NOTES[s.slice(0, 4)];
   renderDue(s);
+  document.dispatchEvent(new Event("datechange"));
   $("msg").textContent = ""; $("fallback").hidden = true;
 }
 const input = $("base");
@@ -172,5 +197,176 @@ $("txt").onclick = () => save(`schedule_${current.date}.txt`, [
   "[이행완료 보고서 제출기간]",
   ...current.rows.map(r => `${r[0]}: 이행 ${r[1]} ~ ${r[2]}, 결과보고 완료기한 ${r[3]}`), "",
   `반영된 휴일: ${NOTES[current.date.slice(0,4)]}`].join("\r\n"));
+
+// ---- 점검 목록 파일 읽기 ----
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", quoted = false;
+  text = text.replace(/^\ufeff/, "");
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c !== '"') cell += c;
+      else if (text[i + 1] === '"') { cell += '"'; i++; }
+      else quoted = false;
+    } else if (c === '"' && cell === "") quoted = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+    else if (c !== "\r") cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+async function unzip(buf) {          // xlsx(zip) 안의 파일을 읽는 함수를 돌려줌
+  const v = new DataView(buf), files = {};
+  let end = buf.byteLength - 22;
+  while (end >= 0 && v.getUint32(end, true) !== 0x06054b50) end--;
+  if (end < 0) throw new Error("zip");
+  let p = v.getUint32(end + 16, true);
+  for (let i = v.getUint16(end + 10, true); i > 0; i--) {
+    const len = v.getUint16(p + 28, true);
+    const name = new TextDecoder().decode(new Uint8Array(buf, p + 46, len));
+    files[name] = { method: v.getUint16(p + 10, true), size: v.getUint32(p + 20, true), at: v.getUint32(p + 42, true) };
+    p += 46 + len + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
+  }
+  return async name => {
+    const f = files[name]; if (!f) return null;
+    const start = f.at + 30 + v.getUint16(f.at + 26, true) + v.getUint16(f.at + 28, true);
+    let blob = new Blob([new Uint8Array(buf, start, f.size)]);
+    if (f.method === 8) blob = await new Response(blob.stream().pipeThrough(new DecompressionStream("deflate-raw"))).blob();
+    return new DOMParser().parseFromString(await blob.text(), "application/xml");
+  };
+}
+const tags = (node, name) => node ? [...node.getElementsByTagNameNS("*", name)] : [];
+async function parseXLSX(buf) {      // 시트별 2차원 배열
+  const read = await unzip(buf);
+  const shared = tags(await read("xl/sharedStrings.xml"), "si").map(si =>
+    tags(si, "t").filter(t => t.parentNode.localName !== "rPh").map(t => t.textContent).join(""));
+  const book = await read("xl/workbook.xml");
+  const mac = ["1", "true"].includes(tags(book, "workbookPr")[0]?.getAttribute("date1904"));
+  const rels = tags(await read("xl/_rels/workbook.xml.rels"), "Relationship");
+  const sheets = [];
+  for (const s of tags(book, "sheet")) {
+    const id = s.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    const target = rels.find(r => r.getAttribute("Id") === id)?.getAttribute("Target");
+    if (!target) continue;
+    const doc = await read(target.startsWith("/") ? target.slice(1) : "xl/" + target);
+    sheets.push(tags(doc, "row").map(r => {
+      const row = [];
+      tags(r, "c").forEach(c => {
+        const letters = (c.getAttribute("r") || "").replace(/\d/g, "");
+        const col = letters ? [...letters].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : row.length;
+        const type = c.getAttribute("t"), raw = tags(c, "v")[0]?.textContent ?? "";
+        row[col] = type === "s" ? shared[+raw] : type === "inlineStr" ? tags(c, "t").map(t => t.textContent).join("")
+          : (!type || type === "n") && raw !== "" ? Number(raw) : raw;
+      });
+      return Array.from(row, x => x ?? "");
+    }));
+  }
+  return { sheets, mac };
+}
+function toDate(value, mac) {        // 날짜를 YYYY-MM-DD로, 읽을 수 없으면 ""
+  if (typeof value === "number" && value > 30000 && value < 80000)
+    return iso(add(parse("1899-12-30"), Math.floor(value) + (mac ? 1462 : 0)));
+  const m = String(value).trim().match(/^(\d{4})\s*[-./년]?\s*(\d{1,2})\s*[-./월]?\s*(\d{1,2})(?!\d)/);
+  if (!m) return "";
+  const s = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  const d = parse(s);
+  return !isNaN(d) && iso(d) === s ? s : "";
+}
+function district(address) {
+  const a = address.trim();
+  if (!a) return "주소 없음";
+  const m = a.match(/^서울(?:특별시|시)?\s+(\S+구)(?=\s|$)/);
+  return m ? m[1] : "서울 외";
+}
+function toRecords(rows, mac) {
+  const norm = x => String(x).replace(/\s/g, "");
+  const head = rows.slice(0, 20).findIndex(r => r.some(c => norm(c) === "점검종료일"));
+  if (head < 0) return null;
+  const names = Array.from(rows[head], norm);
+  const need = ["점검종료일", "점검구분", "대상물명", "도로명주소"];
+  const missing = need.filter(n => !names.includes(n));
+  if (missing.length) throw new Error("missing:" + missing.join(", "));
+  const get = (r, n) => String(r[names.indexOf(n)] ?? "").trim();
+  return rows.slice(head + 1).filter(r => r.some(c => String(c).trim() !== "")).map(r => ({
+    name: get(r, "대상물명"), kind: get(r, "점검구분"),
+    end: toDate(r[names.indexOf("점검종료일")] ?? "", mac),
+    address: get(r, "도로명주소"), gu: district(get(r, "도로명주소")),
+    company: get(r, "배치신고업체명"), phone: get(r, "업체연락처")
+  }));
+}
+async function readList(file) {
+  const buf = await file.arrayBuffer();
+  if (/\.csv$/i.test(file.name)) {
+    let text;
+    try { text = new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+    catch { text = new TextDecoder("euc-kr").decode(buf); }
+    return toRecords(parseCSV(text), false);
+  }
+  const { sheets, mac } = await parseXLSX(buf);
+  for (const rows of sheets) { const found = toRecords(rows, mac); if (found) return found; }
+  return null;
+}
+
+let records = null, matches = [];
+const kindOf = k => ["최초", "종합", "작동"].find(x => k.includes(x)) || "";
+const fields = r => [r.name, r.kind, r.gu, r.end, r.company, r.phone, r.address];
+function renderList() {
+  if (!records) return;
+  const info = dueToday(current.date);
+  const days = info ? info.dates.map(iso) : [];
+  const kind = $("kind").value, gu = $("gu").value;
+  matches = records.filter(r => days.includes(r.end) && (!kind || kindOf(r.kind) === kind) && (!gu || r.gu === gu))
+    .sort((a, b) => a.gu.localeCompare(b.gu, "ko") || a.name.localeCompare(b.name, "ko"));
+  const who = `${current.date === kst().slice(0, 10) ? "오늘" : current.date} 제출 대상`;
+  $("found").textContent = !info ? "주말·공휴일이므로 제출 대상이 없습니다."
+    : `${who}: ${matches.length}건 (점검종료일 ${info.dates.map(withDay).join(", ")} · ${kind || "전체 구분"} · ${gu || "전체 관할구"})`;
+  const ends = records.map(r => r.end).filter(Boolean).sort();
+  const bad = records.length - ends.length;
+  $("xnote").textContent = [
+    `파일 ${records.length}건` + (ends.length ? `, 점검종료일 ${ends[0]} ~ ${ends.at(-1)}` : ""),
+    info && ends.length && !records.some(r => days.includes(r.end)) ? "이 파일에는 해당 점검종료일의 자료가 없습니다." : "",
+    bad ? `주의: 점검종료일을 읽지 못한 ${bad}건은 검색에서 빠졌습니다.` : ""
+  ].filter(Boolean).join(" · ");
+  $("xrows").replaceChildren(...matches.map(r => {
+    const tr = document.createElement("tr");
+    fields(r).forEach(v => tr.insertCell().textContent = v);
+    return tr;
+  }));
+  $("xtable").hidden = $("xsave").hidden = !matches.length;
+}
+function fillDistricts() {
+  const first = ["서대문구", "마포구", "은평구"], last = ["서울 외", "주소 없음"];
+  const rest = [...new Set(records.map(r => r.gu))].filter(g => !first.includes(g) && !last.includes(g)).sort((a, b) => a.localeCompare(b, "ko"));
+  const chosen = $("gu").value;
+  const list = [...first, ...rest, ...last.filter(g => records.some(r => r.gu === g))];
+  $("gu").replaceChildren(new Option("전체", ""), ...list.map(g => new Option(g, g)));
+  $("gu").value = list.includes(chosen) ? chosen : "";
+}
+$("file").addEventListener("change", async () => {
+  const file = $("file").files[0];
+  records = null; matches = []; $("xtable").hidden = $("xsave").hidden = true; $("xnote").textContent = "";
+  if (!file) { $("found").textContent = "파일을 선택하면 제출 대상이 표시됩니다."; return; }
+  $("found").textContent = "파일을 읽는 중입니다.";
+  try {
+    if (!/\.(csv|xlsx|xlsm)$/i.test(file.name)) throw new Error("type");
+    const result = await readList(file);
+    if (file !== $("file").files[0]) return;
+    if (!result) throw new Error("missing:점검종료일");
+    records = result; fillDistricts(); renderList();
+  } catch (e) {
+    $("found").textContent = e.message.startsWith("missing:") ? `파일에서 '${e.message.slice(8)}' 열을 찾지 못했습니다.`
+      : "파일을 읽지 못했습니다. .csv 또는 .xlsx 형식으로 저장한 뒤 다시 선택해 주세요.";
+  }
+});
+$("kind").addEventListener("change", renderList);
+$("gu").addEventListener("change", renderList);
+$("xsave").onclick = () => {
+  const cell = v => `"${(/^[=+\-@\t\r]/.test(v) ? "'" + v : v).replaceAll('"', '""')}"`;
+  save(`due_${current.date}.csv`, "\ufeff" +
+    [["대상물명","점검구분","관할구","점검종료일","업체명","업체 연락처","도로명 주소"], ...matches.map(fields)]
+      .map(r => r.map(cell).join(",")).join("\r\n"));
+};
+document.addEventListener("datechange", renderList);
 </script>
 </body></html>
