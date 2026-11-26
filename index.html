@@ -14,8 +14,8 @@ p{margin:0}
 .date:focus-within{border-color:var(--accent)}
 .date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;font-size:16px}
 hr{border:0;border-top:1px solid var(--line);margin:38px 0 26px}
-.headline{font-size:18.5px;font-weight:700;line-height:1.25;margin:18px 0 20px;word-break:keep-all}
-.due{background:#e8f2fc;color:#0b4f8a;border-radius:8px;padding:12px 15px;font-weight:700;font-size:13px}
+.headline{font-size:18.5px;font-weight:700;line-height:1.25;margin:18px 0 20px;word-break:keep-all;white-space:pre-line}
+.due{background:#e8f2fc;color:#0b4f8a;border-radius:8px;padding:12px 15px;font-weight:700;font-size:22px;word-break:keep-all}
 details{font-size:12px;margin-top:10px}
 summary{cursor:pointer}
 #count{margin:8px 0 0;padding-left:26px;font-variant-numeric:tabular-nums;columns:3 130px}
@@ -57,7 +57,7 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   .date,.upload,.filters select{font-size:15px}
   hr{margin:18px 0 14px}
   h2{font-size:20px;margin-bottom:10px}
-  .due{font-size:14.5px;padding:9px 14px}
+  .due{font-size:20px;padding:9px 14px}
   .headline{font-size:19px;margin:10px 0 8px}
   .small{font-size:12px}
   table{font-size:14px}
@@ -238,9 +238,9 @@ function renderDue(s) {
   const info = dueToday(s), isToday = s === kst().slice(0, 10);
   $("dueTitle").textContent = isToday ? "오늘" : s;
   current.due = info
-    ? `${info.dates.map(withDay).join(", ")}에 점검한 보고서`
+    ? info.dates.map(withDay).join("\n")
     : "주말·공휴일이므로 제출기한인 보고서가 없습니다";
-  $("due").textContent = info ? `${current.due}를 제출해야 합니다.` : `${current.due}.`;
+  $("due").textContent = info ? current.due : `${current.due}.`;
   document.querySelector("details").hidden = !info;
   $("count").replaceChildren(...(info?.counted ?? []).map(d => {
     const li = document.createElement("li"); li.textContent = withDay(d).slice(5); return li;
