@@ -128,7 +128,7 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   </div>
   <div class="filters">
     <label for="kind">점검구분<select id="kind"><option value="">전체</option><option>작동</option><option>종합</option><option>최초</option></select></label>
-    <label for="gu">관할구<select id="gu"><option value="">전체</option><option>서대문구</option><option>마포구</option><option>은평구</option></select></label>
+    <label for="gu">관할구<select id="gu"><option value="">전체</option></select></label>
   </div>
   </div>
   <p id="found" role="status">파일을 선택하면 제출 대상이 표시됩니다.</p>
@@ -321,11 +321,13 @@ function toDate(value, mac) {        // 날짜를 YYYY-MM-DD로, 읽을 수 없�
   const d = parse(s);
   return !isNaN(d) && iso(d) === s ? s : "";
 }
+const SEOUL_GU = ("강남구 강동구 강북구 강서구 관악구 광진구 구로구 금천구 노원구 도봉구 동대문구 동작구 마포구 " +
+  "서대문구 서초구 성동구 성북구 송파구 양천구 영등포구 용산구 은평구 종로구 중구 중랑구").split(" ");
 function district(address) {
   const a = address.trim();
   if (!a) return "주소 없음";
-  const m = a.match(/^서울(?:특별시|시)?\s+(\S+구)(?=\s|$)/);
-  return m ? m[1] : "서울 외";
+  const m = a.match(/^(?:서울(?:특별시|시)?\s*)?(\S+?구)(?=\s|$)/);
+  return m && SEOUL_GU.includes(m[1]) ? m[1] : "서울 외";
 }
 function toRecords(rows, mac) {
   const norm = x => String(x).replace(/\s/g, "");
@@ -383,17 +385,15 @@ function renderList() {
   }));
   $("xtable").hidden = $("xsave").hidden = !matches.length;
 }
-function fillDistricts() {
-  const first = ["서대문구", "마포구", "은평구"], last = ["서울 외", "주소 없음"];
-  const rest = [...new Set(records.map(r => r.gu))].filter(g => !first.includes(g) && !last.includes(g)).sort((a, b) => a.localeCompare(b, "ko"));
+function fillDistricts() {          // 파일의 도로명 주소에 있는 서울시 구만 표시
+  const list = SEOUL_GU.filter(g => (records || []).some(r => r.gu === g));
   const chosen = $("gu").value;
-  const list = [...first, ...rest, ...last.filter(g => records.some(r => r.gu === g))];
   $("gu").replaceChildren(new Option("전체", ""), ...list.map(g => new Option(g, g)));
   $("gu").value = list.includes(chosen) ? chosen : "";
 }
 $("file").addEventListener("change", async () => {
   const file = $("file").files[0];
-  records = null; matches = []; $("xtable").hidden = $("xsave").hidden = true; $("xnote").textContent = "";
+  records = null; matches = []; fillDistricts(); $("xtable").hidden = $("xsave").hidden = true; $("xnote").textContent = "";
   if (!file) { $("found").textContent = "파일을 선택하면 제출 대상이 표시됩니다."; return; }
   $("found").textContent = "파일을 읽는 중입니다.";
   try {
