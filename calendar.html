@@ -91,7 +91,7 @@ aside ul{margin:0;padding-left:18px}
       <p id="status" class="small" role="status"></p>
       <ul class="events" id="results" hidden></ul>
       <div class="grid" id="grid"></div>
-      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다. 건수는 자체점검 페이지에 올려 둔 파일을 기준으로 합니다.<br>날짜를 두 번 누르면 일정을 추가합니다. 일정은 이 브라우저에만 저장됩니다. 일정 옆의 작은 숫자는 입력할 때의 IPv4 주소입니다.</p>
+      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다. 건수는 자체점검 페이지에 올려 둔 파일을 기준으로 합니다.<br>날짜를 두 번 누르면 일정을 추가합니다. 일정은 이 브라우저에만 저장됩니다. 일정 옆의 작은 숫자는 입력한 PC의 IPv4 주소입니다.</p>
     </section>
     <aside id="detail" aria-live="polite"></aside>
   </div>
@@ -173,12 +173,29 @@ const EVENTS = "calendar.events.v1";
 const COLORS = [["파랑","#dcebff","#0b4f8a"],["초록","#dcf4e1","#1b6b32"],["노랑","#fff2c2","#6b5200"],["빨강","#ffdede","#a11d25"],["보라","#ece2ff","#52309a"],["회색","#e9eaee","#31333f"]];
 const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parse(s)) && iso(parse(s)) === s;
 const isIPv4 = s => typeof s === "string" && /^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$/.test(s);
-async function fetchIp() {           // 브라우저는 자기 공인 IP를 알 수 없어 외부 확인 서비스를 사용합니다
-  try {
-    const res = await fetch("https://api.ipify.org?format=json", { cache: "no-store", signal: AbortSignal.timeout(4000) });
-    const { ip } = await res.json();
-    return isIPv4(ip) ? ip : "";
-  } catch { return ""; }
+// PC에 설정된 IPv4. Chrome·Edge는 WebRtcLocalIpsAllowedUrls 정책에 이 사이트를 등록해야 알려줍니다.
+function fetchIp() {
+  return new Promise(resolve => {
+    const found = [];
+    let pc, timer, finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true; clearTimeout(timer); pc?.close();
+      // 가상 어댑터에 흔한 192.168·172.16~31 대역은 다른 주소가 없을 때만 사용
+      resolve(found.find(ip => !/^(192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) || found[0] || "");
+    };
+    try {
+      pc = new RTCPeerConnection({ iceServers: [] });
+      pc.onicecandidate = ({ candidate }) => {
+        if (!candidate) return finish();
+        const part = candidate.candidate.split(" ");
+        if (part[7] === "host" && isIPv4(part[4]) && !/^(0\.|127\.|169\.254\.)/.test(part[4])) found.push(part[4]);
+      };
+      timer = setTimeout(finish, 3000);
+      pc.createDataChannel("ip");
+      pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(finish);
+    } catch { finish(); }
+  });
 }
 const ipTag = e => el("span", e.ip || "IP 확인 안 됨", "ip");
 function clean(list) {               // 저장·백업 자료 중 올바른 일정만
@@ -251,8 +268,7 @@ $("form").onsubmit = async ev => {
   else {
     const request = ipRequest;
     $("save").disabled = true;
-    let ip = await request;
-    if (!ip) ip = await fetchIp();
+    const ip = await request;
     if (request !== ipRequest || !$("editor").open) return;   // 기다리는 동안 취소한 경우
     events.push({ id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, ...data, done: [], ip });
   }
