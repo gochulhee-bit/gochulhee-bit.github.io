@@ -22,6 +22,13 @@ th{background:var(--field)}
 td:first-child{word-break:break-all}
 td:not(:first-child){white-space:nowrap}
 tbody tr:last-child td{border-bottom:0}
+td button{padding:1px 12px;font-size:13px}
+dialog{border:1px solid var(--line);border-radius:12px;padding:20px;width:min(340px,calc(100vw - 64px));color:var(--fg)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+dialog p{margin:0 0 10px;word-break:break-all}
+dialog input{box-sizing:border-box;width:100%;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
+#delmsg{color:#b83a40;font-size:13px;min-height:1.6em;margin:6px 0}
+.actions{display:flex;justify-content:flex-end;gap:8px}
 </style></head><body>
 <main>
   <nav><a href="./">자체점검</a><a href="form.html" aria-current="page">양식</a></nav>
@@ -30,18 +37,27 @@ tbody tr:last-child td{border-bottom:0}
     <input type="file" id="file" aria-label="올릴 양식 파일" accept=".hwp,.hwpx,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" required>
     <button id="send" disabled>업로드</button>
   </form>
-  <p class="small">한글, PDF, 워드, 엑셀, 파워포인트 파일(10MB 이하)을 올릴 수 있습니다. 올린 파일은 누구나 내려받을 수 있으니 개인정보가 담긴 파일은 올리지 마세요. 삭제는 관리자만 할 수 있습니다.</p>
+  <p class="small">한글, PDF, 워드, 엑셀, 파워포인트 파일(10MB 이하)을 올릴 수 있습니다. 올린 파일은 누구나 내려받을 수 있으니 개인정보가 담긴 파일은 올리지 마세요. 삭제하려면 비밀번호가 필요합니다.</p>
   <p id="msg" role="status"></p>
   <div class="table" id="table" hidden><table>
-    <thead><tr><th>파일명</th><th>크기</th><th>올린 날짜</th><th>받기</th></tr></thead>
+    <thead><tr><th>파일명</th><th>크기</th><th>올린 날짜</th><th>받기</th><th>삭제</th></tr></thead>
     <tbody id="rows"></tbody>
   </table></div>
 </main>
+<dialog id="dialog" aria-labelledby="delname">
+  <form id="delform">
+    <p><b id="delname"></b> 파일을 삭제합니다.</p>
+    <input type="password" id="password" aria-label="삭제 비밀번호" placeholder="삭제 비밀번호" autocomplete="off" required>
+    <p id="delmsg" role="alert"></p>
+    <div class="actions"><button type="button" id="cancel">취소</button><button id="confirm">삭제</button></div>
+  </form>
+</dialog>
 <script>
 // Google Apps Script 웹 앱 주소(…/exec)를 따옴표 안에 넣으세요.
 const API_URL = "";
 const $ = id => document.getElementById(id);
 const say = text => $("msg").textContent = text;
+let target = "";
 function show(files) {
   $("rows").replaceChildren(...files.map(f => {
     const tr = document.createElement("tr");
@@ -51,6 +67,14 @@ function show(files) {
     if (String(f.url).startsWith("https://drive.google.com/")) {
       const a = document.createElement("a"); a.href = f.url; a.textContent = "내려받기"; a.rel = "noopener"; cell.append(a);
     }
+    const del = document.createElement("button");
+    del.type = "button"; del.textContent = "삭제";
+    del.setAttribute("aria-label", `${f.name} 삭제`);
+    del.onclick = () => {
+      target = f.id; $("delname").textContent = f.name;
+      $("delform").reset(); $("delmsg").textContent = ""; $("dialog").showModal();
+    };
+    tr.insertCell().append(del);
     return tr;
   }));
   $("table").hidden = !files.length;
@@ -87,6 +111,19 @@ $("form").addEventListener("submit", async event => {
     say(e instanceof TypeError ? "연결하지 못했습니다. 목록을 새로고침해 올라갔는지 확인하세요." : e.message || "올리지 못했습니다.");
   }
   $("send").disabled = false;
+});
+$("cancel").onclick = () => $("dialog").close();
+$("delform").addEventListener("submit", async event => {
+  event.preventDefault();
+  $("confirm").disabled = true; $("delmsg").textContent = "삭제하는 중입니다.";
+  try {
+    show(await call({ method: "POST", body: JSON.stringify({ action: "delete", id: target, password: $("password").value }) }));
+    $("dialog").close(); say("삭제했습니다.");
+  } catch (e) {
+    $("delmsg").textContent = e instanceof TypeError ? "연결하지 못했습니다. 새로고침해 확인하세요." : e.message || "삭제하지 못했습니다.";
+    $("password").value = "";
+  }
+  $("confirm").disabled = false;
 });
 load();
 </script>
