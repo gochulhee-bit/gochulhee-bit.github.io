@@ -1,0 +1,186 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>이행 일정 점검표</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* layout: Streamlit식 단일 중앙 컬럼 */
+:root{color-scheme:light;--bg:#fff;--fg:#31333f;--muted:#8b8d96;--line:#d6d6d9;--field:#f0f2f6;--alert-bg:#ffeaea;--alert-fg:#b83a40;--accent:#ff4b4b;--font:"Source Sans 3","Noto Sans KR",sans-serif}
+body{background:var(--bg);color:var(--fg);font:14px/1.6 var(--font)}
+main{box-sizing:border-box;max-width:596px;margin:0 auto;padding-block:8px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:clamp(24px,6.2vw,35px);line-height:1.3;margin:0 0 28px;padding-left:6px;word-break:keep-all}
+h2{font-size:22px;margin:0 0 14px}
+p{margin:0}
+.label{display:block;font-size:12px;margin:14px 0 4px}
+.date{position:relative;background:var(--field);border-radius:8px;padding:6px 11px;font-size:12.5px;border:1px solid transparent}
+.date:focus-within{border-color:var(--accent)}
+.date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;font-size:16px}
+hr{border:0;border-top:1px solid var(--line);margin:38px 0 26px}
+.alert{background:var(--alert-bg);color:var(--alert-fg);border-radius:8px;padding:12px 15px;font-weight:700;font-size:13px}
+.headline{font-size:18.5px;font-weight:700;line-height:1.25;margin:18px 0 20px;word-break:keep-all}
+.due{background:#e8f2fc;color:#0b4f8a;border-radius:8px;padding:12px 15px;font-weight:700;font-size:13px}
+details{font-size:12px;margin-top:10px}
+summary{cursor:pointer}
+#count{margin:8px 0 0;padding-left:26px;font-variant-numeric:tabular-nums;columns:3 130px}
+.small{font-size:11px;color:var(--muted)}
+.table{overflow-x:auto;border:1px solid #e6e7ea;border-radius:8px}
+table{width:100%;min-width:500px;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{border:solid #e6e7ea;border-width:0 1px 1px 0;padding:3px 6px;text-align:left;white-space:nowrap;line-height:19px}
+th{font-weight:400;color:var(--muted)}
+tr>:last-child{border-right:0}
+tbody tr:last-child td{border-bottom:0}
+td:first-child{color:var(--muted);padding-left:7px;width:19px}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:25px}
+button{justify-self:start;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:4px 11px 4px 13px;font:13px/22px var(--font);cursor:pointer}
+button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)}
+#msg{margin-top:8px;min-height:1em}
+#fallback{box-sizing:border-box;width:100%;height:140px;font:12px/1.5 monospace}
+.holidays{font-size:12px;line-height:1.75;margin-bottom:12px}
+</style>
+
+<main>
+  <h1>📋 이행 일정 및 미제출 점검표</h1>
+  <p style="font-size:12.5px"><b>기준 일시:</b> <span id="now"></span></p>
+  <label class="label" for="base">기준 날짜 선택</label>
+  <div class="date"><span id="shown"></span><input type="date" id="base" min="2026-02-01" max="2027-11-30"></div>
+  <hr>
+  <div class="due">📮 <span id="dueTitle">오늘</span> 제출해야 하는 보고서</div>
+  <p class="headline" id="due"></p>
+  <p class="small">제출일로부터 15영업일 전에 점검한 건 (토·일요일, 공휴일 제외)</p>
+  <details><summary>날짜 세는 과정 보기</summary><ol id="count" reversed></ol></details>
+  <hr>
+  <div class="alert">⚠️ 미제출 보고서 점검 기준</div>
+  <p class="headline">오늘은 <span id="cutoff"></span> 이전에 종료된 점검 건의 보고서 미제출을 확인해야 합니다.</p>
+  <p class="small">산출 근거: 자체점검 종료 익일 기산, 영업일 15일 이내 제출 규정 적용</p>
+  <hr>
+  <h2>📅 <span id="heading">금일</span> 기준 신규 이행 일정</h2>
+  <div class="table"><table>
+    <thead><tr><th></th><th>구분</th><th>이행 시작일</th><th>이행 종료일</th><th>결과보고 완료기한</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+  <div class="buttons">
+    <button type="button" id="csv">📥 결과 CSV 다운로드</button>
+    <button type="button" id="txt">📄 텍스트 리포트 저장</button>
+  </div>
+  <p class="small" id="msg" role="status"></p>
+  <textarea id="fallback" aria-label="저장할 내용" readonly hidden></textarea>
+  <hr>
+  <h2>📌 산출 근거 및 휴일 정보</h2>
+  <p class="holidays"><b>반영된 휴일:</b> <span id="hol"></span></p>
+  <p class="small">※ 본 일정은 법정 공휴일 및 사용자 지정 휴일을 포함한 영업일 계산을 준용하였습니다.</p>
+</main>
+
+<script>
+// 휴일 목록: 새 공휴일(임시공휴일, 회사 지정 휴일 등)은 여기에 추가하세요.
+const HOLIDAYS = new Set(`
+2026-01-01 2026-02-16 2026-02-17 2026-02-18 2026-03-01 2026-03-02 2026-05-01 2026-05-05
+2026-05-24 2026-05-25 2026-06-03 2026-06-06 2026-07-17 2026-08-15 2026-08-17 2026-09-24
+2026-09-25 2026-09-26 2026-10-03 2026-10-05 2026-10-09 2026-12-25
+2027-01-01 2027-02-06 2027-02-07 2027-02-08 2027-02-09 2027-03-01 2027-05-01 2027-05-03
+2027-05-05 2027-05-13 2027-06-06 2027-07-17 2027-07-19 2027-08-15 2027-08-16 2027-09-14
+2027-09-15 2027-09-16 2027-10-03 2027-10-04 2027-10-09 2027-10-11 2027-12-25 2027-12-27
+`.trim().split(/\s+/));
+const NOTES = {
+  2026: "05/01(노동절), 07/17(제헌절), 10/05(개천절 대체 휴일; 대체공휴일), 10/09(한글날), 12/25(기독탄신일)",
+  2027: "05/03(노동절 대체공휴일), 07/19(제헌절 대체공휴일), 10/04(개천절 대체공휴일), 10/11(한글날 대체공휴일), 12/27(기독탄신일 대체공휴일)"
+};
+
+const parse = s => new Date(s + "T00:00:00Z");
+const iso = d => d.toISOString().slice(0, 10);
+const add = (d, n) => new Date(d.getTime() + n * 86400000);
+const isBiz = d => d.getUTCDay() % 6 !== 0 && !HOLIDAYS.has(iso(d));
+function shiftBiz(d, n) {            // n 영업일 이동 (음수는 과거)
+  const step = Math.sign(n);
+  for (let left = Math.abs(n); left > 0;) { d = add(d, step); if (isBiz(d)) left--; }
+  return d;
+}
+const withDay = d => `${iso(d)} (${"일월화수목금토"[d.getUTCDay()]})`;
+function calc(s) {
+  const base = parse(s);
+  return {
+    cutoff: withDay(shiftBiz(base, -15)),
+    rows: [["단기 조치", 10], ["중기 조치", 20]].map(([name, days]) => {
+      const end = add(base, days - 1);   // 시작일 포함
+      return [name, s, iso(end), withDay(shiftBiz(end, 10))];
+    })
+  };
+}
+
+const $ = id => document.getElementById(id);
+const kst = () => new Date(Date.now() + 9 * 3600000).toISOString();
+const today = kst().slice(0, 10);
+let current;
+function tick() {
+  const t = kst();
+  $("now").textContent = `${t.slice(0,4)}년 ${t.slice(5,7)}월 ${t.slice(8,10)}일 ${t.slice(11,16)}`;
+}
+function render(s) {
+  current = { date: s, ...calc(s) };
+  $("shown").textContent = s.replaceAll("-", "/");
+  $("cutoff").textContent = current.cutoff;
+  $("heading").textContent = s === kst().slice(0, 10) ? "금일" : s;
+  $("rows").replaceChildren(...current.rows.map((r, i) => {
+    const tr = document.createElement("tr");
+    [i, ...r].forEach(v => tr.insertCell().textContent = v);
+    return tr;
+  }));
+  $("hol").textContent = NOTES[s.slice(0, 4)];
+  renderDue(s);
+  $("msg").textContent = ""; $("fallback").hidden = true;
+}
+const input = $("base");
+const inRange = s => s >= input.min && s <= input.max;
+input.value = inRange(today) ? today : input.max;
+input.addEventListener("click", () => { try { input.showPicker(); } catch {} });
+input.addEventListener("change", () => {
+  if (inRange(input.value)) render(input.value);
+  else { input.value = current.date; $("msg").textContent = "2026-02-01부터 2027-11-30까지의 날짜를 선택하세요."; }
+});
+tick(); setInterval(tick, 10000); render(input.value);
+
+function dueToday(s) {               // 제출기한이 s인 점검 종료일 (주말·휴일 점검분 포함)
+  const base = parse(s);
+  if (!isBiz(base)) return null;
+  const first = shiftBiz(base, -15), dates = [first];
+  for (let d = add(first, 1); !isBiz(d); d = add(d, 1)) dates.push(d);
+  const counted = Array.from({ length: 15 }, (_, i) => shiftBiz(base, -(i + 1)));
+  return { dates, counted };
+}
+function renderDue(s) {
+  const info = dueToday(s), isToday = s === kst().slice(0, 10);
+  $("dueTitle").textContent = isToday ? "오늘" : s;
+  current.due = info
+    ? `${info.dates.map(withDay).join(", ")}에 점검한 보고서`
+    : "주말·공휴일이므로 제출기한인 보고서가 없습니다";
+  $("due").textContent = info ? `${current.due}를 제출해야 합니다.` : `${current.due}.`;
+  document.querySelector("details").hidden = !info;
+  $("count").replaceChildren(...(info?.counted ?? []).map(d => {
+    const li = document.createElement("li"); li.textContent = withDay(d).slice(5); return li;
+  }));
+}
+
+const downloads = window.claude?.use ? window.claude.use("downloads") : Promise.resolve(undefined);
+async function save(filename, data) {
+  const msg = $("msg");
+  const showText = () => { $("fallback").value = data.replace("﻿", ""); $("fallback").hidden = false;
+    msg.textContent = "여기서는 파일 저장이 안 됩니다. 아래 내용을 복사해 사용하세요."; };
+  const api = await downloads;
+  if (api === undefined) {           // 일반 웹서버 / 로컬 파일
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data], { type: "text/plain;charset=utf-8" }));
+    a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    return;
+  }
+  if (!api) return showText();
+  try { await api.save({ filename, data }); msg.textContent = ""; }
+  catch (e) { if (e?.code === "declined") msg.textContent = "저장을 취소했습니다."; else showText(); }
+}
+$("csv").onclick = () => save(`schedule_${current.date}.csv`, "﻿" +
+  [["구분","이행 시작일","이행 종료일","결과보고 완료기한"], ...current.rows].map(r => r.join(",")).join("\r\n"));
+$("txt").onclick = () => save(`schedule_${current.date}.txt`, [
+  "이행 일정 및 미제출 점검표", `기준 날짜: ${current.date}`, "",
+  "[제출 대상 보고서]", current.due, "",
+  "[미제출 보고서 점검 기준]", `${current.cutoff} 이전에 종료된 점검 건의 보고서 미제출 확인`, "",
+  "[신규 이행 일정]",
+  ...current.rows.map(r => `${r[0]}: 이행 ${r[1]} ~ ${r[2]}, 결과보고 완료기한 ${r[3]}`), "",
+  `반영된 휴일: ${NOTES[current.date.slice(0,4)]}`].join("\r\n"));
+</script>
+</body></html>
