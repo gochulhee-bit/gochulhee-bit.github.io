@@ -40,6 +40,11 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 #found{font-size:15px;font-weight:700;margin:6px 0 10px;word-break:keep-all}
 #xtable table{min-width:760px}
 #xsave{margin-top:12px}
+.query{border:1px solid var(--line);border-radius:8px;padding:12px 15px;font-size:12.5px;margin-bottom:6px}
+.query b{font-size:15px;font-variant-numeric:tabular-nums}
+.query ol{margin:8px 0 0;padding-left:20px}
+.query a{color:#0b62a8}
+#copy{margin-left:8px;padding-block:1px}
 </style>
 
 <main>
@@ -54,6 +59,17 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   <details><summary>날짜 세는 과정 보기</summary><ol id="count" reversed></ol></details>
   <hr>
   <h2>📂 엑셀로 제출 대상 찾기</h2>
+  <div class="query">
+    <div>신청일자 조회기간: <b id="period"></b><button type="button" id="copy">복사</button></div>
+    <ol>
+      <li><a href="https://www.kfma.kr/" target="_blank" rel="noopener noreferrer">한국소방시설관리협회</a> 접속 후 로그인</li>
+      <li><a href="https://fpsm.kfma.kr" target="_blank" rel="noopener noreferrer">관리업종합정보시스템</a> 이동</li>
+      <li>소방서확인업무 이동</li>
+      <li>신청일자에 위 조회기간 입력 후 조회</li>
+      <li>페이지당 목록을 5에서 500으로 변경</li>
+      <li>엑셀 다운로드 후 아래에서 파일 선택</li>
+    </ol>
+  </div>
   <label class="label" for="file">점검 목록 파일 (.csv 또는 .xlsx)</label>
   <input class="upload" type="file" id="file" accept=".csv,.xlsx,.xlsm">
   <p class="small">파일은 이 브라우저 안에서만 읽으며 서버로 전송하지 않습니다.</p>
@@ -368,5 +384,19 @@ $("xsave").onclick = () => {
       .map(r => r.map(cell).join(",")).join("\r\n"));
 };
 document.addEventListener("datechange", renderList);
+// ---- 협회 시스템 조회기간: 제출 대상 점검일 일주일 전 ~ 점검일 ----
+const dotted = d => iso(d).replaceAll("-", ".") + ".";
+function renderPeriod() {
+  const info = dueToday(current.date);
+  current.period = info ? `${dotted(add(info.dates[0], -7))} ~ ${dotted(info.dates.at(-1))}` : "";
+  $("period").textContent = current.period || "제출 대상이 없는 날입니다";
+  $("copy").hidden = !info; $("copy").textContent = "복사";
+}
+$("copy").onclick = async () => {
+  try { await navigator.clipboard.writeText(current.period); $("copy").textContent = "복사됨"; }
+  catch { getSelection().selectAllChildren($("period")); $("copy").textContent = "선택됨"; }
+};
+document.addEventListener("datechange", renderPeriod);
+renderPeriod();
 </script>
 </body></html>
