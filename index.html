@@ -14,7 +14,6 @@ p{margin:0}
 .date:focus-within{border-color:var(--accent)}
 .date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;font-size:16px}
 hr{border:0;border-top:1px solid var(--line);margin:38px 0 26px}
-.alert{background:var(--alert-bg);color:var(--alert-fg);border-radius:8px;padding:12px 15px;font-weight:700;font-size:13px}
 .headline{font-size:18.5px;font-weight:700;line-height:1.25;margin:18px 0 20px;word-break:keep-all}
 .due{background:#e8f2fc;color:#0b4f8a;border-radius:8px;padding:12px 15px;font-weight:700;font-size:13px}
 details{font-size:12px;margin-top:10px}
@@ -46,10 +45,6 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   <p class="headline" id="due"></p>
   <p class="small">제출일로부터 15영업일 전에 점검한 건 (토·일요일, 공휴일 제외)</p>
   <details><summary>날짜 세는 과정 보기</summary><ol id="count" reversed></ol></details>
-  <hr>
-  <div class="alert">⚠️ 미제출 보고서 점검 기준</div>
-  <p class="headline">오늘은 <span id="cutoff"></span> 이전에 종료된 점검 건의 보고서 미제출을 확인해야 합니다.</p>
-  <p class="small">산출 근거: 자체점검 종료 익일 기산, 영업일 15일 이내 제출 규정 적용</p>
   <hr>
   <h2>📅 <span id="heading">금일</span> 기준 신규 이행 일정</h2>
   <div class="table"><table>
@@ -96,7 +91,6 @@ const withDay = d => `${iso(d)} (${"일월화수목금토"[d.getUTCDay()]})`;
 function calc(s) {
   const base = parse(s);
   return {
-    cutoff: withDay(shiftBiz(base, -15)),
     rows: [["단기 조치", 10], ["중기 조치", 20]].map(([name, days]) => {
       const end = add(base, days - 1);   // 시작일 포함
       return [name, s, iso(end), withDay(shiftBiz(end, 10))];
@@ -115,7 +109,6 @@ function tick() {
 function render(s) {
   current = { date: s, ...calc(s) };
   $("shown").textContent = s.replaceAll("-", "/");
-  $("cutoff").textContent = current.cutoff;
   $("heading").textContent = s === kst().slice(0, 10) ? "금일" : s;
   $("rows").replaceChildren(...current.rows.map((r, i) => {
     const tr = document.createElement("tr");
@@ -178,7 +171,6 @@ $("csv").onclick = () => save(`schedule_${current.date}.csv`, "﻿" +
 $("txt").onclick = () => save(`schedule_${current.date}.txt`, [
   "자체점검", `기준 날짜: ${current.date}`, "",
   "[제출 대상 보고서]", current.due, "",
-  "[미제출 보고서 점검 기준]", `${current.cutoff} 이전에 종료된 점검 건의 보고서 미제출 확인`, "",
   "[신규 이행 일정]",
   ...current.rows.map(r => `${r[0]}: 이행 ${r[1]} ~ ${r[2]}, 결과보고 완료기한 ${r[3]}`), "",
   `반영된 휴일: ${NOTES[current.date.slice(0,4)]}`].join("\r\n"));
