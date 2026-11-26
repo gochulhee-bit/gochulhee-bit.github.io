@@ -45,10 +45,47 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 .query ol{margin:8px 0 0;padding-left:20px}
 .query a{color:#0b62a8}
 #copy{margin-left:8px;padding-block:1px}
+
+.layout>*{min-width:0}
+@media (max-width:1099px){.finder{border-top:1px solid var(--line);margin-top:28px;padding-top:24px}}
+@media (min-width:1100px){
+  main{max-width:1880px;padding:16px 32px 24px}
+  h1{font-size:32px;margin:0 0 14px;padding:0}
+  .layout{display:grid;grid-template-columns:minmax(460px,520px) minmax(0,1fr);gap:32px;align-items:start}
+  .side>p:first-child{font-size:14px}
+  .label,.filters label,.holidays{font-size:13.5px}
+  .date,.upload,.filters select{font-size:15px}
+  hr{margin:18px 0 14px}
+  h2{font-size:20px;margin-bottom:10px}
+  .due{font-size:14.5px;padding:9px 14px}
+  .headline{font-size:19px;margin:10px 0 8px}
+  .small{font-size:12px}
+  table{font-size:14px}
+  th,td{padding:5px 9px}
+  .side table{min-width:0;font-size:13px}
+  .side th,.side td{padding:4px 7px}
+  button{font-size:14px}
+  .buttons{margin-top:12px}
+  .finder{border-left:1px solid var(--line);padding-left:32px}
+  .finder h2{margin-top:0}
+  .finder>.label{margin-top:10px}
+  .query{font-size:13.5px}
+  .query ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 28px}
+  .controls{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,2fr);gap:0 20px;align-items:start}
+  .controls .filters{margin:10px 0 0}
+  .controls .filters label{font-size:13.5px}
+  #found{margin:12px 0 6px;font-size:17px}
+  #xnote{margin-bottom:6px}
+  #xtable{max-height:max(260px,calc(100vh - 480px));overflow:auto}
+  #xtable table{border-collapse:separate;border-spacing:0}
+  #xtable th{position:sticky;top:0;background:var(--field);color:var(--fg);font-weight:600}
+}
 </style>
 
 <main>
   <h1>📋 자체점검</h1>
+  <div class="layout">
+  <div class="side">
   <p style="font-size:12.5px"><b>기준 일시:</b> <span id="now"></span></p>
   <label class="label" for="base">기준 날짜 선택</label>
   <div class="date"><span id="shown"></span><input type="date" id="base" min="2026-02-01" max="2027-11-30"></div>
@@ -57,33 +94,6 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   <p class="headline" id="due"></p>
   <p class="small">제출일로부터 15영업일 전에 점검한 건 (토·일요일, 공휴일 제외)</p>
   <details><summary>날짜 세는 과정 보기</summary><ol id="count" reversed></ol></details>
-  <hr>
-  <h2>📂 엑셀로 제출 대상 찾기</h2>
-  <div class="query">
-    <div>신청일자 조회기간: <b id="period"></b><button type="button" id="copy">복사</button></div>
-    <ol>
-      <li><a href="https://www.kfma.kr/" target="_blank" rel="noopener noreferrer">한국소방시설관리협회</a> 접속 후 로그인</li>
-      <li><a href="https://fpsm.kfma.kr" target="_blank" rel="noopener noreferrer">관리업종합정보시스템</a> 이동</li>
-      <li>소방서확인업무 이동</li>
-      <li>신청일자에 위 조회기간 입력 후 조회</li>
-      <li>페이지당 목록을 5에서 500으로 변경</li>
-      <li>엑셀 다운로드 후 아래에서 파일 선택</li>
-    </ol>
-  </div>
-  <label class="label" for="file">점검 목록 파일 (.csv 또는 .xlsx)</label>
-  <input class="upload" type="file" id="file" accept=".csv,.xlsx,.xlsm">
-  <p class="small">파일은 이 브라우저 안에서만 읽으며 서버로 전송하지 않습니다.</p>
-  <div class="filters">
-    <label for="kind">점검구분<select id="kind"><option value="">전체</option><option>작동</option><option>종합</option><option>최초</option></select></label>
-    <label for="gu">관할구<select id="gu"><option value="">전체</option><option>서대문구</option><option>마포구</option><option>은평구</option></select></label>
-  </div>
-  <p id="found" role="status">파일을 선택하면 제출 대상이 표시됩니다.</p>
-  <p class="small" id="xnote"></p>
-  <div class="table" id="xtable" hidden><table>
-    <thead><tr><th>점검종료일</th><th>점검구분</th><th>대상물명</th><th>도로명 주소</th><th>업체명</th><th>업체 연락처</th></tr></thead>
-    <tbody id="xrows"></tbody>
-  </table></div>
-  <button type="button" id="xsave" hidden>📥 제출 대상 CSV 다운로드</button>
   <hr>
   <h2>📅 이행완료 보고서 제출기간</h2>
   <div class="table"><table>
@@ -100,6 +110,40 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   <h2>📌 산출 근거 및 휴일 정보</h2>
   <p class="holidays"><b>반영된 휴일:</b> <span id="hol"></span></p>
   <p class="small">※ 본 일정은 법정 공휴일 및 사용자 지정 휴일을 포함한 영업일 계산을 준용하였습니다.</p>
+  </div>
+  <section class="finder">
+  <h2>📂 엑셀로 제출 대상 찾기</h2>
+  <div class="query">
+    <div>신청일자 조회기간: <b id="period"></b><button type="button" id="copy">복사</button></div>
+    <ol>
+      <li><a href="https://www.kfma.kr/" target="_blank" rel="noopener noreferrer">한국소방시설관리협회</a> 접속 후 로그인</li>
+      <li><a href="https://fpsm.kfma.kr" target="_blank" rel="noopener noreferrer">관리업종합정보시스템</a> 이동</li>
+      <li>소방서확인업무 이동</li>
+      <li>신청일자에 위 조회기간 입력 후 조회</li>
+      <li>페이지당 목록을 5에서 500으로 변경</li>
+      <li>엑셀 다운로드 후 아래에서 파일 선택</li>
+    </ol>
+  </div>
+  <div class="controls">
+  <div>
+  <label class="label" for="file">점검 목록 파일 (.csv 또는 .xlsx)</label>
+  <input class="upload" type="file" id="file" accept=".csv,.xlsx,.xlsm">
+  <p class="small">파일은 이 브라우저 안에서만 읽으며 서버로 전송하지 않습니다.</p>
+  </div>
+  <div class="filters">
+    <label for="kind">점검구분<select id="kind"><option value="">전체</option><option>작동</option><option>종합</option><option>최초</option></select></label>
+    <label for="gu">관할구<select id="gu"><option value="">전체</option><option>서대문구</option><option>마포구</option><option>은평구</option></select></label>
+  </div>
+  </div>
+  <p id="found" role="status">파일을 선택하면 제출 대상이 표시됩니다.</p>
+  <p class="small" id="xnote"></p>
+  <div class="table" id="xtable" hidden><table>
+    <thead><tr><th>점검종료일</th><th>점검구분</th><th>대상물명</th><th>도로명 주소</th><th>업체명</th><th>업체 연락처</th></tr></thead>
+    <tbody id="xrows"></tbody>
+  </table></div>
+  <button type="button" id="xsave" hidden>📥 제출 대상 CSV 다운로드</button>
+  </section>
+  </div>
 </main>
 
 <script>
