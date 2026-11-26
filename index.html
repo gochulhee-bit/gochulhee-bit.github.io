@@ -76,10 +76,17 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   .controls .filters label{font-size:13.5px}
   #found{margin:12px 0 6px;font-size:17px}
   #xnote{margin-bottom:6px}
-  #xtable{max-height:max(260px,calc(100vh - 480px));overflow:auto}
+  #xtable{max-height:max(240px,calc(100vh - 575px));overflow:auto}
   #xtable table{border-collapse:separate;border-spacing:0}
   #xtable th{position:sticky;top:0;background:var(--field);color:var(--fg);font-weight:600}
 }
+#files{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;font-size:12.5px}
+#files li{display:flex;align-items:center;gap:8px;background:var(--field);border-radius:8px;padding:4px 6px 4px 10px;min-width:0}
+#files span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#files button,#clear{padding-block:0;font-size:12px}
+#clear{margin-top:6px}
+#filemsg{color:var(--alert-fg)}
+@media (min-width:1100px){#files{grid-template-columns:repeat(3,minmax(0,1fr))}.controls{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}}
 </style>
 
 <main>
@@ -122,9 +129,12 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   </div>
   <div class="controls">
   <div>
-  <label class="label" for="file">점검 목록 파일 (.csv 또는 .xlsx)</label>
-  <input class="upload" type="file" id="file" accept=".csv,.xlsx,.xlsm">
-  <p class="small">파일은 이 브라우저 안에서만 읽으며 서버로 전송하지 않습니다.</p>
+  <label class="label" for="file">점검 목록 파일 (.csv 또는 .xlsx, 최대 3개)</label>
+  <input class="upload" type="file" id="file" accept=".csv,.xlsx,.xlsm" multiple>
+  <ul id="files"></ul>
+  <button type="button" id="clear" hidden>모두 삭제</button>
+  <p class="small" id="filemsg" role="status"></p>
+  <p class="small">파일 내용은 이 브라우저에만 저장되며 서버로 전송하지 않습니다. 공용 PC에서는 사용 후 모두 삭제하세요.</p>
   </div>
   <div class="filters">
     <label for="kind">점검구분<select id="kind"><option value="">전체</option><option>작동</option><option>종합</option><option>최초</option></select></label>
@@ -358,7 +368,8 @@ async function readList(file) {
   return null;
 }
 
-let records = null, matches = [];
+const MAX_FILES = 3, STORE = "selfcheck.files.v1";
+let files = [], records = null, matches = [];
 const kindOf = k => ["최초", "종합", "작동"].find(x => k.includes(x)) || "";
 const fields = r => [r.end, r.kind, r.name, r.address, r.company, r.phone];
 function renderList() {
@@ -375,8 +386,9 @@ function renderList() {
   const ends = records.map(r => r.end).filter(Boolean).sort();
   const bad = records.length - ends.length;
   $("xnote").textContent = [
-    `파일 ${records.length}건` + (ends.length ? `, 점검종료일 ${ends[0]} ~ ${ends.at(-1)}` : ""),
+    `파일 ${files.length}개, 자료 ${records.length}건` + (ends.length ? `, 점검종료일 ${ends[0]} ~ ${ends.at(-1)}` : ""),
     info && ends.length && !records.some(r => days.includes(r.end)) ? "이 파일에는 해당 점검종료일의 자료가 없습니다." : "",
+    repeated ? `파일 간 중복 ${repeated}건 제외` : "",
     bad ? `주의: 점검종료일을 읽지 못한 ${bad}건은 검색에서 빠졌습니다.` : ""
   ].filter(Boolean).join(" · ");
   $("xrows").replaceChildren(...matches.map(r => {
@@ -392,22 +404,79 @@ function fillDistricts(rows = []) { // 점검종료일로 거른 자료의 도�
   $("gu").replaceChildren(new Option("전체", ""), ...list.map(g => new Option(g, g)));
   $("gu").value = list.includes(chosen) ? chosen : "";
 }
-$("file").addEventListener("change", async () => {
-  const file = $("file").files[0];
-  records = null; matches = []; fillDistricts(); $("xtable").hidden = $("xsave").hidden = true; $("xnote").textContent = "";
-  if (!file) { $("found").textContent = "파일을 선택하면 제출 대상이 표시됩니다."; return; }
-  $("found").textContent = "파일을 읽는 중입니다.";
+// ---- 파일 최대 3개, 이 브라우저에 저장해 새로고침해도 유지 ----
+function persist() {
   try {
-    if (!/\.(csv|xlsx|xlsm)$/i.test(file.name)) throw new Error("type");
-    const result = await readList(file);
-    if (file !== $("file").files[0]) return;
-    if (!result) throw new Error("missing:점검종료일");
-    records = result; renderList();
-  } catch (e) {
-    $("found").textContent = e.message.startsWith("missing:") ? `파일에서 '${e.message.slice(8)}' 열을 찾지 못했습니다.`
-      : "파일을 읽지 못했습니다. .csv 또는 .xlsx 형식으로 저장한 뒤 다시 선택해 주세요.";
+    if (files.length) localStorage.setItem(STORE, JSON.stringify(files));
+    else localStorage.removeItem(STORE);
+    return true;
+  } catch { return false; }
+}
+function mergeFiles() {              // 파일끼리 겹치는 같은 자료는 한 번만 셈
+  if (!files.length) return { list: null, repeated: 0 };
+  const most = new Map(), list = []; let total = 0;
+  for (const f of files) {
+    const seen = new Map();
+    for (const r of f.records) {
+      const key = JSON.stringify([r.end, r.kind, r.name, r.address, r.company, r.phone]);
+      seen.set(key, (seen.get(key) || 0) + 1); total++;
+      if (seen.get(key) > (most.get(key) || 0)) { most.set(key, seen.get(key)); list.push(r); }
+    }
   }
+  return { list, repeated: total - list.length };
+}
+let repeated = 0;
+function showFiles() {
+  ({ list: records, repeated } = mergeFiles());
+  $("files").replaceChildren(...files.map((f, i) => {
+    const li = document.createElement("li"), name = document.createElement("span"), del = document.createElement("button");
+    name.textContent = `${f.name} (${f.records.length}건, ${f.added} 저장)`; name.title = name.textContent;
+    del.type = "button"; del.textContent = "삭제";
+    del.setAttribute("aria-label", `${f.name} 삭제`);
+    del.onclick = () => { files.splice(i, 1); persist(); $("filemsg").textContent = ""; showFiles(); };
+    li.append(name, del); return li;
+  }));
+  $("clear").hidden = !files.length;
+  if (records) return renderList();
+  matches = []; fillDistricts(); $("xrows").replaceChildren(); $("xnote").textContent = "";
+  $("xtable").hidden = $("xsave").hidden = true;
+  $("found").textContent = "파일을 선택하면 제출 대상이 표시됩니다.";
+}
+let queue = Promise.resolve();
+async function addFiles(chosen) {
+  const problems = [];
+  for (const file of chosen) {
+    const same = files.findIndex(f => f.name === file.name);
+    if (same < 0 && files.length >= MAX_FILES) { problems.push(`${file.name}: 파일은 ${MAX_FILES}개까지입니다. 먼저 하나를 삭제하세요.`); continue; }
+    try {
+      if (!/\.(csv|xlsx|xlsm)$/i.test(file.name)) throw new Error("type");
+      const result = await readList(file);
+      if (!result) throw new Error("missing:점검종료일");
+      const entry = { name: file.name, added: kst().slice(5, 16).replace("T", " "), records: result };
+      if (same < 0) files.push(entry); else files[same] = entry;
+    } catch (e) {
+      problems.push(`${file.name}: ` + (e.message.startsWith("missing:") ? `'${e.message.slice(8)}' 열을 찾지 못했습니다.`
+        : "읽지 못했습니다. .csv 또는 .xlsx 형식으로 저장한 뒤 다시 선택해 주세요."));
+    }
+  }
+  if (!persist()) problems.push("브라우저에 저장하지 못했습니다. 새로고침하면 파일을 다시 선택해야 합니다.");
+  $("filemsg").textContent = problems.join(" / ");
+  showFiles();
+}
+$("file").addEventListener("change", () => {
+  const chosen = [...$("file").files];
+  $("file").value = "";
+  if (chosen.length) queue = queue.then(() => addFiles(chosen));
 });
+$("clear").onclick = () => { files = []; persist(); $("filemsg").textContent = ""; showFiles(); };
+function restore() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE) || "[]");
+    files = saved.filter(f => typeof f?.name === "string" && Array.isArray(f.records)).slice(0, MAX_FILES);
+    files.forEach(f => f.records.forEach(r => r.gu = district(r.address)));
+  } catch { files = []; }
+  showFiles();
+}
 $("kind").addEventListener("change", renderList);
 $("gu").addEventListener("change", renderList);
 $("xsave").onclick = () => {
@@ -431,5 +500,6 @@ $("copy").onclick = async () => {
 };
 document.addEventListener("datechange", renderPeriod);
 renderPeriod();
+restore();
 </script>
 </body></html>
