@@ -53,8 +53,9 @@ dialog input{box-sizing:border-box;width:100%;background:var(--field);border:1px
   </form>
 </dialog>
 <script>
-// Google Apps Script 웹 앱 주소(…/exec)를 따옴표 안에 넣으세요.
+// Cloudflare Worker 주소(https://….workers.dev)를 따옴표 안에 넣으세요.
 const API_URL = "";
+const BASE = API_URL.replace(/\/+$/, "");
 const $ = id => document.getElementById(id);
 const say = text => $("msg").textContent = text;
 let target = "";
@@ -64,7 +65,7 @@ function show(files) {
     [f.name, f.size < 1048576 ? `${Math.max(1, Math.round(f.size / 1024))} KB` : `${(f.size / 1048576).toFixed(1)} MB`,
       new Date(f.date).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })].forEach(v => tr.insertCell().textContent = v);
     const cell = tr.insertCell();
-    if (String(f.url).startsWith("https://drive.google.com/")) {
+    if (String(f.url).startsWith(BASE + "/file/")) {
       const a = document.createElement("a"); a.href = f.url; a.textContent = "내려받기"; a.rel = "noopener"; cell.append(a);
     }
     const del = document.createElement("button");
@@ -80,8 +81,8 @@ function show(files) {
   $("table").hidden = !files.length;
   say(files.length ? "" : "아직 올라온 양식이 없습니다.");
 }
-async function call(options) {
-  const response = await fetch(API_URL, options);
+async function call(path, options) {
+  const response = await fetch(BASE + path, options);
   const result = await response.json();
   if (!result.ok) throw new Error(result.error);
   return result.files;
@@ -89,7 +90,7 @@ async function call(options) {
 async function load() {
   if (!API_URL) return say("업로드 기능을 준비 중입니다.");
   say("목록을 불러오는 중입니다.");
-  try { show(await call()); $("send").disabled = false; }
+  try { show(await call("/files")); $("send").disabled = false; }
   catch { say("목록을 불러오지 못했습니다. 새로고침해 주세요."); }
 }
 $("form").addEventListener("submit", async event => {
@@ -99,13 +100,7 @@ $("form").addEventListener("submit", async event => {
   if (file.size > 10 * 1048576) return say("파일은 10MB 이하만 올릴 수 있습니다.");
   $("send").disabled = true; say("올리는 중입니다.");
   try {
-    const data = await new Promise((done, fail) => {
-      const reader = new FileReader();
-      reader.onload = () => done(reader.result.split(",")[1] || "");
-      reader.onerror = fail; reader.readAsDataURL(file);
-    });
-    // 본문을 일반 글자로 보내야 Apps Script가 요청을 받습니다.
-    show(await call({ method: "POST", body: JSON.stringify({ name: file.name, data }) }));
+    show(await call(`/upload?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file }));
     $("form").reset(); say("올렸습니다.");
   } catch (e) {
     say(e instanceof TypeError ? "연결하지 못했습니다. 목록을 새로고침해 올라갔는지 확인하세요." : e.message || "올리지 못했습니다.");
@@ -117,7 +112,7 @@ $("delform").addEventListener("submit", async event => {
   event.preventDefault();
   $("confirm").disabled = true; $("delmsg").textContent = "삭제하는 중입니다.";
   try {
-    show(await call({ method: "POST", body: JSON.stringify({ action: "delete", id: target, password: $("password").value }) }));
+    show(await call("/delete", { method: "POST", body: JSON.stringify({ id: target, password: $("password").value }) }));
     $("dialog").close(); say("삭제했습니다.");
   } catch (e) {
     $("delmsg").textContent = e instanceof TypeError ? "연결하지 못했습니다. 새로고침해 확인하세요." : e.message || "삭제하지 못했습니다.";
