@@ -80,7 +80,7 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   <p id="found" role="status">파일을 선택하면 제출 대상이 표시됩니다.</p>
   <p class="small" id="xnote"></p>
   <div class="table" id="xtable" hidden><table>
-    <thead><tr><th>대상물명</th><th>점검구분</th><th>관할구</th><th>점검종료일</th><th>업체명</th><th>업체 연락처</th><th>도로명 주소</th></tr></thead>
+    <thead><tr><th>점검종료일</th><th>점검구분</th><th>대상물명</th><th>도로명 주소</th><th>업체명</th><th>업체 연락처</th></tr></thead>
     <tbody id="xrows"></tbody>
   </table></div>
   <button type="button" id="xsave" hidden>📥 제출 대상 CSV 다운로드</button>
@@ -326,7 +326,7 @@ async function readList(file) {
 
 let records = null, matches = [];
 const kindOf = k => ["최초", "종합", "작동"].find(x => k.includes(x)) || "";
-const fields = r => [r.name, r.kind, r.gu, r.end, r.company, r.phone, r.address];
+const fields = r => [r.end, r.kind, r.name, r.address, r.company, r.phone];
 function renderList() {
   if (!records) return;
   const info = dueToday(current.date);
@@ -380,7 +380,7 @@ $("gu").addEventListener("change", renderList);
 $("xsave").onclick = () => {
   const cell = v => `"${(/^[=+\-@\t\r]/.test(v) ? "'" + v : v).replaceAll('"', '""')}"`;
   save(`due_${current.date}.csv`, "\ufeff" +
-    [["대상물명","점검구분","관할구","점검종료일","업체명","업체 연락처","도로명 주소"], ...matches.map(fields)]
+    [["점검종료일","점검구분","대상물명","도로명 주소","업체명","업체 연락처"], ...matches.map(fields)]
       .map(r => r.map(cell).join(",")).join("\r\n"));
 };
 document.addEventListener("datechange", renderList);
