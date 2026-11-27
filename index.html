@@ -434,11 +434,20 @@ function renderList() {
   }));
   $("xtable").hidden = $("xsave").hidden = !matches.length;
 }
+const FILTERS = "selfcheck.filters.v1";
+let filters = { kind: "", gu: "" };  // 새로고침해도 유지할 선택값
+try { filters = { ...filters, ...JSON.parse(localStorage.getItem(FILTERS) || "{}") }; } catch {}
+$("kind").value = filters.kind;
+if ($("kind").selectedIndex < 0) $("kind").value = "";
+function saveFilter(id) {
+  filters[id] = $(id).value;
+  try { localStorage.setItem(FILTERS, JSON.stringify(filters)); } catch {}
+  renderList();
+}
 function fillDistricts(rows = []) { // 점검종료일로 거른 자료의 도로명 주소에 있는 서울시 구만 표시
   const list = SEOUL_GU.filter(g => rows.some(r => r.gu === g));
-  const chosen = $("gu").value;
   $("gu").replaceChildren(new Option("전체", ""), ...list.map(g => new Option(g, g)));
-  $("gu").value = list.includes(chosen) ? chosen : "";
+  $("gu").value = list.includes(filters.gu) ? filters.gu : "";   // 없는 날은 전체로 보이고, 선택은 기억
 }
 // ---- 파일 최대 3개, 이 브라우저에 저장해 새로고침해도 유지 ----
 function persist() {
@@ -513,8 +522,8 @@ function restore() {
   } catch { files = []; }
   showFiles();
 }
-$("kind").addEventListener("change", renderList);
-$("gu").addEventListener("change", renderList);
+$("kind").addEventListener("change", () => saveFilter("kind"));
+$("gu").addEventListener("change", () => saveFilter("gu"));
 $("xsave").onclick = () => {
   const cell = v => `"${(/^[=+\-@\t\r]/.test(v) ? "'" + v : v).replaceAll('"', '""')}"`;
   save(`due_${current.date}.csv`, "\ufeff" +
