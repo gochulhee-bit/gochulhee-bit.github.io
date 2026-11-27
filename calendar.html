@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="theme.js?v=3"></script><title>달력</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="theme.js?v=3"></script><script src="keys.js"></script><title>달력</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&display=swap">
 <style>
 :root{color-scheme:light;--fg:#31333f;--muted:#8b8d96;--line:#e1e2e6;--field:#f0f2f6;--accent:#ff4b4b;--red:#c92f36;--blue:#0b62a8;--bluebg:#e8f2fc}
@@ -109,7 +109,7 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
       <p id="status" class="small" role="status"></p>
       <ul class="events" id="results" hidden></ul>
       <div class="grid" id="grid"></div>
-      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다.<br>날짜를 두 번 누르면 바로 입력합니다. Enter 또는 바깥을 누르면 저장, Esc는 취소입니다. 일정을 두 번 누르면 수정합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
+      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다.<br>날짜를 두 번 누르면 바로 입력합니다. Enter 또는 바깥을 누르면 저장, Esc는 취소입니다. 입력칸에서 Ctrl+; 는 오늘 날짜, Ctrl+Shift+; 는 현재 시간을 넣습니다. 일정을 두 번 누르면 수정합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
     </section>
     <aside id="detail" aria-live="polite"></aside>
   </div>
