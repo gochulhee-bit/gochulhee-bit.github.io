@@ -14,7 +14,10 @@ p{margin:0}
 .date:focus-within{border-color:var(--accent)}
 #mini{margin-top:8px}
 #mini table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse}
-#mini caption{font-weight:700;font-size:13px;padding-bottom:3px}
+#mini .nav{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+#mini .nav b{display:block;min-width:116px;text-align:center;font-size:17px}
+#mini .nav button{padding:0 12px;font-size:12.5px;line-height:22px}
+#mini .nav button:disabled{opacity:.4;cursor:default}
 #mini th,#mini td{border:1px solid var(--tline,#e6e7ea);background:none;white-space:nowrap;overflow:hidden}
 #mini th{font-weight:400;color:var(--muted);font-size:11px;line-height:16px;padding:0;text-align:center}
 #mini td{height:29px;padding:0 2px 0 3px;vertical-align:top;text-align:left;line-height:13px}
@@ -124,7 +127,10 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
   <p style="font-size:12.5px"><b>기준 일시:</b> <span id="now"></span></p>
   <label class="label" for="base">기준 날짜 선택</label>
   <div class="date"><span id="shown"></span><input type="date" id="base" min="2026-02-01" max="2027-11-30"></div>
-  <div id="mini" aria-label="날짜별 제출 대상 점검일 달력"></div>
+  <div id="mini" aria-label="날짜별 제출 대상 점검일 달력">
+  <div class="nav"><button type="button" id="mprev" aria-label="이전 달">◀</button><b id="mtitle" aria-live="polite"></b><button type="button" id="mnext" aria-label="다음 달">▶</button><button type="button" id="mtoday">오늘</button></div>
+  <div id="mgrid"></div>
+  </div>
   <hr>
   <div class="due">📮 <span id="dueTitle">오늘</span> 제출해야 하는 보고서</div>
   <p class="headline" id="due"></p>
@@ -219,7 +225,7 @@ function calc(s) {
 const $ = id => document.getElementById(id);
 const kst = () => new Date(Date.now() + 9 * 3600000).toISOString();
 const today = kst().slice(0, 10);
-let current;
+let current, miniMonth;
 function tick() {
   const t = kst();
   $("now").textContent = `${t.slice(0,4)}년 ${t.slice(5,7)}월 ${t.slice(8,10)}일 ${t.slice(11,16)}`;
@@ -246,6 +252,15 @@ input.addEventListener("change", () => {
   else { input.value = current.date; $("msg").textContent = "2026-02-01부터 2027-11-30까지의 날짜를 선택하세요."; }
 });
 tick(); setInterval(tick, 10000); render(input.value);
+// 작은 달력의 ◀ ▶ 는 보는 달만 바꾸고, "오늘"은 기준 날짜를 오늘로 되돌립니다
+const turnMonth = n => { const d = parse(`${miniMonth}-01`); d.setUTCMonth(d.getUTCMonth() + n); renderMini(current.date, iso(d).slice(0, 7)); };
+$("mprev").onclick = () => turnMonth(-1);
+$("mnext").onclick = () => turnMonth(1);
+$("mtoday").onclick = () => {
+  const now = kst().slice(0, 10);
+  input.value = inRange(now) ? now : input.max;
+  render(input.value);
+};
 
 function dueToday(s) {               // 제출기한이 s인 점검 종료일 (주말·휴일 점검분 포함)
   const base = parse(s);
@@ -255,12 +270,16 @@ function dueToday(s) {               // 제출기한이 s인 점검 종료일 (�
   const counted = Array.from({ length: 15 }, (_, i) => shiftBiz(base, -(i + 1)));
   return { dates, counted };
 }
-// 작은 달력: 선택한 날이 있는 한 달. 날짜 밑의 "점검 M/D"는 그날이 제출기한인 점검 종료일
+// 작은 달력: 한 달씩 (◀▶로 넘겨 봅니다). 날짜 밑의 "점검 M/D"는 그날이 제출기한인 점검 종료일
 function md(d) { return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; }
-function renderMini(s) {
-  const month = s.slice(0, 7), first = parse(`${month}-01`);
+function renderMini(s, month = s.slice(0, 7)) {
+  const first = parse(`${month}-01`);
+  miniMonth = month;
   const table = document.createElement("table");
-  table.createCaption().textContent = `${first.getUTCFullYear()}년 ${first.getUTCMonth() + 1}월`;
+  $("mtitle").textContent = `${first.getUTCFullYear()}년 ${first.getUTCMonth() + 1}월`;
+  table.setAttribute("aria-label", $("mtitle").textContent);
+  $("mprev").disabled = month <= $("base").min.slice(0, 7);
+  $("mnext").disabled = month >= $("base").max.slice(0, 7);
   const head = table.createTHead().insertRow();
   [..."일월화수목금토"].forEach((name, i) => { const th = document.createElement("th"); th.textContent = name; th.className = i === 0 ? "sun" : i === 6 ? "sat" : ""; head.append(th); });
   const body = table.createTBody();
@@ -282,7 +301,7 @@ function renderMini(s) {
     }
   }
   while (row.cells.length < 7) row.insertCell();
-  $("mini").replaceChildren(table);
+  $("mgrid").replaceChildren(table);
 }
 function renderDue(s) {
   const info = dueToday(s), isToday = s === kst().slice(0, 10);
