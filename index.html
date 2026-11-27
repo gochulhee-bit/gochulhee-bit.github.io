@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>자체점검</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}[hidden]{display:none!important}</style><script src="theme.js"></script></head><body><title>자체점검</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&display=swap">
 <style>
@@ -15,14 +15,14 @@ p{margin:0}
 .date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;font-size:16px}
 hr{border:0;border-top:1px solid var(--line);margin:38px 0 26px}
 .headline{font-size:18.5px;font-weight:700;line-height:1.25;margin:18px 0 20px;word-break:keep-all;white-space:pre-line}
-.due{background:#e8f2fc;color:#0b4f8a;border-radius:8px;padding:12px 15px;font-weight:700;font-size:22px;word-break:keep-all}
+.due{background:var(--duebg,#e8f2fc);color:var(--duefg,#0b4f8a);border-radius:8px;padding:12px 15px;font-weight:700;font-size:22px;word-break:keep-all}
 details{font-size:12px;margin-top:10px}
 summary{cursor:pointer}
 #count{margin:8px 0 0;padding-left:26px;font-variant-numeric:tabular-nums;columns:3 130px}
 .small{font-size:11px;color:var(--muted)}
-.table{overflow-x:auto;border:1px solid #e6e7ea;border-radius:8px}
+.table{overflow-x:auto;border:1px solid var(--tline,#e6e7ea);border-radius:8px}
 table{width:100%;min-width:500px;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
-th,td{border:solid #e6e7ea;border-width:0 1px 1px 0;padding:3px 6px;text-align:left;white-space:nowrap;line-height:19px}
+th,td{border:solid var(--tline,#e6e7ea);border-width:0 1px 1px 0;padding:3px 6px;text-align:left;white-space:nowrap;line-height:19px}
 th{font-weight:400;color:var(--muted)}
 tr>:last-child{border-right:0}
 tbody tr:last-child td{border-bottom:0}
@@ -47,7 +47,7 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 .query{border:1px solid var(--line);border-radius:8px;padding:12px 15px;font-size:12.5px;margin-bottom:6px}
 .query b{font-size:15px;font-variant-numeric:tabular-nums}
 .query ol{margin:8px 0 0;padding-left:20px}
-.query a{color:#0b62a8}
+.query a{color:var(--link,#0b62a8)}
 #copy{margin-left:8px;padding-block:1px}
 
 .layout>*{min-width:0}
@@ -95,7 +95,7 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 .pages a{padding:2px 14px;border:1px solid var(--line);border-radius:8px;color:var(--fg);text-decoration:none;font-size:14px}
 .pages a[aria-current]{border-color:var(--accent);color:var(--accent);font-weight:700}
 @media (min-width:1100px){#xtable{max-height:max(240px,calc(100vh - 615px))}}
-.pages,main>nav{position:fixed;z-index:20;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0;padding:6px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.pages,main>nav{position:fixed;z-index:20;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0;padding:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
 main{padding-bottom:76px}
 @media (min-width:1100px){main{padding-bottom:64px}#xtable{max-height:max(240px,calc(100vh - 615px))}}
 </style>

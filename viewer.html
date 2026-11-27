@@ -1,16 +1,16 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>파일 보기</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src https://cdn.jsdelivr.net https://selfchek-api.toorang2.workers.dev; img-src blob: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src https://cdn.jsdelivr.net https://selfchek-api.toorang2.workers.dev; img-src blob: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <style>
 :root{color-scheme:light}
-body{margin:0;background:#e9eaee;color:#31333f;font:15px/1.5 "Noto Sans KR","Malgun Gothic",sans-serif}
+body{margin:0;background:var(--page,#e9eaee);color:var(--fg,#31333f);font:15px/1.5 "Noto Sans KR","Malgun Gothic",sans-serif}
 [hidden]{display:none!important}
-header{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px;background:#fff;border-bottom:1px solid #d6d6d9}
+header{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 48px 10px 16px;background:var(--bg,#fff);border-bottom:1px solid var(--line,#d6d6d9)}
 h1{flex:1;min-width:200px;margin:0;font-size:16px;word-break:break-all}
-header a,button{border:1px solid #d6d6d9;background:#fff;color:#31333f;border-radius:8px;padding:5px 16px;font:inherit;text-decoration:none;cursor:pointer}
+header a,button{border:1px solid var(--line,#d6d6d9);background:var(--bg,#fff);color:var(--fg,#31333f);border-radius:8px;padding:5px 16px;font:inherit;text-decoration:none;cursor:pointer}
 #print{border-color:#ff4b4b;background:#ff4b4b;color:#fff;font-weight:700}
 #print:disabled{opacity:.5;cursor:default}
 p{margin:0;padding:10px 16px;text-align:center}
-.note{font-size:12.5px;color:#6b6e76}
+.note{font-size:12.5px;color:var(--muted,#6b6e76)}
 #msg{font-weight:700}
 #pages{display:grid;justify-items:center;gap:14px;padding:0 12px 24px}
 #pages img{display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.18)}
@@ -32,7 +32,7 @@ p{margin:0;padding:10px 16px;text-align:center}
   #pages img{max-width:none;box-shadow:none;object-fit:contain;break-after:page}
   #pages img:last-child{break-after:auto}
 }
-</style></head><body>
+</style><script src="theme.js"></script></head><body>
 <header>
   <h1 id="name">파일 보기</h1>
   <button type="button" id="print" disabled>🖨️ 인쇄</button>
