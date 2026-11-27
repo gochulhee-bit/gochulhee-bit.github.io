@@ -48,8 +48,10 @@ td.fill{background-image:linear-gradient(rgba(26,127,69,.3),rgba(26,127,69,.3))}
 .filter{position:absolute;right:2px;top:5px;width:17px;height:18px;padding:0;font-size:9px;line-height:1;border-radius:3px}
 .filter.used{background:var(--green);color:#fff;border-color:var(--green)}
 .grip{position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize}
-#ed{position:absolute;z-index:1;margin:0;padding:2px 5px;box-sizing:border-box;border:2px solid var(--green);border-radius:0;background:var(--bg,#fff);color:var(--fg);font:inherit;line-height:20px;white-space:pre;overflow:hidden;resize:none;outline:0;opacity:0;pointer-events:none}
-#ed.editing{opacity:1;pointer-events:auto;z-index:1}
+#ed{position:absolute;z-index:1;margin:0;padding:2px 5px;box-sizing:border-box;border:2px solid var(--green);border-radius:0;background:var(--bg,#fff);color:var(--fg);font:inherit;line-height:20px;white-space:pre;overflow:hidden;resize:none;outline:0;pointer-events:none}
+#ed:not(.editing){background:transparent;border-color:transparent;color:transparent;caret-color:var(--fg)}
+#ed:not(.editing)::selection{background:transparent}
+#ed.editing{pointer-events:auto}
 #handle{position:absolute;z-index:1;width:8px;height:8px;background:var(--green);border:1px solid var(--bg,#fff);cursor:crosshair}
 #drop{position:absolute;z-index:1;width:18px;height:23px;padding:0;font-size:9px}
 .menu{position:fixed;z-index:30;min-width:170px;max-height:70vh;overflow:auto;padding:5px;display:grid;gap:2px;background:var(--bg,#fff);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
@@ -76,10 +78,12 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
   <nav><a href="./">자체점검</a><a href="calendar.html">달력</a><a href="form.html">양식</a><a href="postpone.html" aria-current="page">연기</a></nav>
   <h1>⏳ 자체점검 연기</h1>
   <form id="login" hidden>
-    <b>공용 표입니다. 비밀번호를 입력하세요.</b>
-    <input type="password" id="pw" placeholder="연기 표 비밀번호" aria-label="연기 표 비밀번호" autocomplete="current-password" required>
-    <label><input type="checkbox" id="keep"> 이 PC에 기억 (개인 PC에서만 선택)</label>
-    <button>열기</button>
+    <div id="pwbox" hidden>
+      <p><b>비밀번호가 설정된 표입니다.</b></p>
+      <input type="password" id="pw" placeholder="연기 표 비밀번호" aria-label="연기 표 비밀번호" autocomplete="current-password">
+      <label><input type="checkbox" id="keep"> 이 PC에 기억 (개인 PC에서만 선택)</label>
+    </div>
+    <button id="openbutton">다시 시도</button>
     <p id="loginmsg" role="status"></p>
   </form>
   <div id="app" hidden>
@@ -92,7 +96,7 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
       <button type="button" data-do="find" title="찾기·바꾸기 (Ctrl+F)">🔍 찾기·바꾸기</button><button type="button" data-do="unfilter">필터·정렬 해제</button><span class="sep"></span>
       <button type="button" id="export">엑셀 저장</button><button type="button" id="import">엑셀 불러오기</button><input type="file" id="file" accept=".xlsx,.xlsm,.csv" hidden>
       <button type="button" id="print">인쇄</button><button type="button" id="upload" hidden></button>
-      <span id="state" role="status"></span><button type="button" id="lock" title="비밀번호를 지우고 표를 닫습니다">🔒 잠그기</button>
+      <span id="state" role="status"></span><button type="button" id="lock" title="비밀번호를 지우고 표를 닫습니다" hidden>🔒 잠그기</button>
     </div>
     <div class="bar" id="findbar" hidden>
       <input id="find" type="search" placeholder="찾을 내용" aria-label="찾을 내용"><button type="button" id="next">다음 찾기</button>
@@ -105,7 +109,7 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
       <div id="handle" title="끌어서 채우기"></div><button type="button" id="drop" tabindex="-1" title="목록에서 선택 (Alt+↓)" hidden>▼</button>
     </div>
     <div id="status"><span id="msg" role="status"></span><span id="sum"></span></div>
-    <p class="small">여러 사람이 함께 쓰는 표입니다. 약 5초마다 다른 사람의 변경이 반영됩니다. 같은 칸을 동시에 고치면 나중에 저장한 내용이 남습니다. 정렬·필터·열 너비는 내 화면에만 적용됩니다. 지난 내용은 보관되지 않으니 가끔 <b>엑셀 저장</b>으로 백업하세요. 오른쪽 클릭 메뉴, 수식(=SUM(A1:A3) 등), Ctrl+C·X·V·Z·D, F2를 쓸 수 있습니다.</p>
+    <p class="small"><b>누구나 보고 고칠 수 있는 공개 표입니다. 개인정보는 적지 마세요.</b> 칸을 한 번 누르면 바로 입력되며, 내용이 있는 칸은 뒤에 이어 써집니다(Esc로 취소). 지우려면 Delete를 두 번 누르세요. 약 5초마다 다른 사람의 변경이 반영됩니다. 같은 칸을 동시에 고치면 나중에 저장한 내용이 남습니다. 정렬·필터·열 너비는 내 화면에만 적용됩니다. 지난 내용은 보관되지 않으니 가끔 <b>엑셀 저장</b>으로 백업하세요. 오른쪽 클릭 메뉴, 수식(=SUM(A1:A3) 등), Ctrl+C·X·V·Z·D, F2(칸 수정)를 쓸 수 있습니다.</p>
   </div>
 </main>
 <script>
@@ -332,10 +336,13 @@ let password = "", since = 0, pending = stored(PENDING, {}), online = false, bus
 async function api(path, options = {}) {
   let res, data;
   try {
-    res = await fetch(API + path, { cache: "no-store", ...options, headers: { ...options.headers, "X-Sheet-Password": encodeURIComponent(password) } });
+    res = await fetch(API + path, { cache: "no-store", ...options, headers: { ...options.headers, ...(password && { "X-Sheet-Password": encodeURIComponent(password) }) } });
     data = await res.json();
   } catch { throw { message: "서버에 연결하지 못했습니다." }; }
-  if (!data.ok) throw { status: res.status, message: res.status === 404 ? "서버 코드(worker-v5)를 적용해야 합니다." : data.error };
+  if (!data.ok) {
+    const outdated = res.status === 404 || String(data.error).includes("SHEET_PASSWORD");
+    throw { status: res.status, message: outdated ? "서버 코드(worker-v6)를 적용해야 합니다." : data.error };
+  }
   return data;
 }
 function overlay(row, set) { for (const [k, v] of Object.entries(set)) v === null ? delete row[k] : row[k] = v; return row; }
@@ -438,7 +445,7 @@ function batch() {
 
 // ───── 화면 ─────
 let anchor = { v: 0, c: 0 }, cursor = { v: 0, c: 0 }, editing = null, marked = [], dragging = null;
-let widths = stored("postpone.widths", []);
+let widths = stored("postpone.widths", []), touched = false;
 const td = (v, c) => body.rows[v]?.cells[c + 1];
 const area = () => ({ top: Math.min(anchor.v, cursor.v), bottom: Math.max(anchor.v, cursor.v), left: Math.min(anchor.c, cursor.c), right: Math.max(anchor.c, cursor.c) });
 const sizeTable = () => {
@@ -514,7 +521,16 @@ function paint() {                 // 선택 표시, 입력칸 위치, 수식 �
   const cell = td(cursor.v, cursor.c); mark(cell, "cur");
   $("cellname").value = `${letter(cursor.c)}${modelIndex(cursor.v) + 1}`;
   if (document.activeElement !== $("formula")) $("formula").value = raw(modelIndex(cursor.v), cursor.c);
+  if (!editing) ready(cell);
   place();
+}
+// 입력 전 상태: 칸의 내용을 입력칸에 담고 커서를 끝에 두어, 글자를 눌러도 뒤에 이어 써지게 합니다
+function ready(cell) {
+  const text = raw(modelIndex(cursor.v), cursor.c);
+  if (ed.value !== text) ed.value = text;
+  ed.setSelectionRange(text.length, text.length);
+  Object.assign(ed.style, { textAlign: cell.style.textAlign || (cell.classList.contains("date") ? "center" : cell.classList.contains("num") ? "right" : ""), fontWeight: cell.style.fontWeight, fontStyle: cell.style.fontStyle });
+  ed.scrollLeft = ed.scrollWidth;
 }
 const box = el => { const r = el.getBoundingClientRect(), s = sheet.getBoundingClientRect(); return { x: r.left - s.left - sheet.clientLeft + sheet.scrollLeft, y: r.top - s.top - sheet.clientTop + sheet.scrollTop, w: r.width, h: r.height }; };
 function place() {
@@ -543,7 +559,6 @@ const focusGrid = () => { ed.focus({ preventScroll: true }); };
 function select(v, c, extend, noScroll) {
   cursor = { v: Math.max(0, Math.min(v, body.rows.length - 1)), c: Math.max(0, Math.min(c, NC - 1)) };
   if (!extend) anchor = { ...cursor };
-  if (!editing) ed.value = "";
   paint(); if (!noScroll) reveal(cursor.v, cursor.c);
 }
 // 자료가 바뀌었을 때: 선택한 행은 따라갑니다. remote: 다른 사람의 변경(아래 빈 행의 위치도 함께 밀림)
@@ -566,7 +581,8 @@ function startEdit(keepTyped) {
   anchor = { ...cursor };
   editing = { v: cursor.v, c: cursor.c, id: view[cursor.v], mode: keepTyped ? "type" : "edit" };
   if (!keepTyped) ed.value = raw(modelIndex(cursor.v), cursor.c);
-  ed.classList.add("editing"); paint(); reveal(cursor.v, cursor.c);
+  ed.classList.add("editing"); ed.style.textAlign = ""; paint(); reveal(cursor.v, cursor.c);
+  if (!keepTyped) ed.setSelectionRange(ed.value.length, ed.value.length);
   $("formula").value = ed.value;
 }
 function endEdit(save) {
@@ -583,6 +599,13 @@ function endEdit(save) {
 function setCells(list) { const b = batch(); for (const [i, c, value] of list) b.set(i, c, value); commit(b.changes); }
 const selected = () => { const a = area(), out = []; for (let v = a.top; v <= a.bottom; v++) for (let c = a.left; c <= a.right; c++) out.push([modelIndex(v), c]); return out; };
 const clearSelection = () => setCells(selected().filter(([i, c]) => raw(i, c) !== "").map(([i, c]) => [i, c, ""]));
+let armedKey = "", armedUntil = 0;
+function twice(name, message, run) {   // 내용이 있는 칸은 같은 키를 3초 안에 두 번 눌러야 실행합니다
+  const key = `${name}|${JSON.stringify(area())}`;
+  if (key === armedKey && Date.now() < armedUntil) { armedKey = ""; say(""); return run(); }
+  armedKey = key; armedUntil = Date.now() + 3000; say(message);
+}
+const hasContent = cells => cells.some(([i, c]) => raw(i, c) !== "");
 function format(change) {
   const b = batch();
   for (const [i, c] of selected()) {
@@ -677,11 +700,13 @@ function fillRange(source, target, series) {
   }
   commit(b.changes);
 }
-function fillKey(down) {          // Ctrl+D / Ctrl+R
+function fillKey(down, sure) {    // Ctrl+D / Ctrl+R
   const a = area(), one = down ? a.top === a.bottom : a.left === a.right;
   if (one && (down ? a.top : a.left) === 0) return;
   const source = down ? { ...a, top: one ? a.top - 1 : a.top, bottom: one ? a.top - 1 : a.top } : { ...a, left: one ? a.left - 1 : a.left, right: one ? a.left - 1 : a.left };
   const target = down ? { ...a, top: source.top + 1 } : { ...a, left: source.left + 1 };
+  const filledTarget = selected().some(([i, c]) => (one || (down ? i !== modelIndex(a.top) : c !== a.left)) && raw(i, c) !== "");
+  if (filledTarget && !sure) { const key = down ? "D" : "R"; return twice(`fill${key}`, `내용이 있는 칸을 덮어씁니다. Ctrl+${key}를 한 번 더 누르세요.`, () => fillKey(down, true)); }
   fillRange(source, target, false);
 }
 
@@ -815,12 +840,18 @@ sheet.addEventListener("mousedown", e => {
   if (t.dataset.grip !== undefined) { e.preventDefault(); const c = +t.dataset.grip; dragging = { type: "size", c, x: e.clientX, w: widths[c] || COLUMNS[c][1] }; return; }
   const cell = t.closest("td,th"); if (!cell) return;
   e.preventDefault();
+  const wasEditing = !!editing;
   if (editing) { ed.blur(); endEdit(true); }      // blur: 한글 조합을 마칩니다
+  const focused = document.activeElement === ed;
+  if (!focused) touched = false;
   focusGrid();
   const inside = (v, c) => { const a = area(); return v >= a.top && v <= a.bottom && c >= a.left && c <= a.right; };
   if (cell.dataset.c !== undefined) {
     const v = +cell.dataset.v, c = +cell.dataset.c;
     if (e.button === 2 && inside(v, c)) return;
+    const a = area(), second = !wasEditing && e.button === 0 && !e.shiftKey && v === cursor.v && c === cursor.c && a.top === a.bottom && a.left === a.right && document.activeElement === ed && touched;
+    touched = true;
+    if (second) return startEdit(false);
     select(v, c, e.shiftKey, true);
     if (e.button === 0) dragging = { type: "cells" };
   } else if (cell.dataset.row !== undefined) {
@@ -888,17 +919,19 @@ function jump(dv, dc) {           // Ctrl+방향키: 자료의 끝으로
 const ARROWS = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
 ed.addEventListener("keydown", e => {
   if (e.isComposing || e.keyCode === 229) return;
-  const ctrl = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+  const ctrl = e.ctrlKey || e.metaKey;
   if (editing) {
     if (e.key === "Enter") { e.preventDefault(); endEdit(true); select(cursor.v + (e.shiftKey ? -1 : 1), cursor.c); }
     else if (e.key === "Tab") { e.preventDefault(); endEdit(true); select(cursor.v, cursor.c + (e.shiftKey ? -1 : 1)); }
     else if (e.key === "Escape") { e.preventDefault(); endEdit(false); }
     else if (e.key === "F2") { e.preventDefault(); editing.mode = editing.mode === "edit" ? "type" : "edit"; }
-    else if (ARROWS[e.key] && editing.mode === "type" && !ed.value.startsWith("=") && !ctrl) { e.preventDefault(); endEdit(true); select(cursor.v + ARROWS[e.key][0], cursor.c + ARROWS[e.key][1]); }
+    else if (ARROWS[e.key] && (ARROWS[e.key][0] || editing.mode === "type") && !ed.value.startsWith("=") && !ctrl && !e.shiftKey) { e.preventDefault(); endEdit(true); select(cursor.v + ARROWS[e.key][0], cursor.c + ARROWS[e.key][1]); }
     return;
   }
   const done = () => e.preventDefault();
   if (e.altKey && e.key === "ArrowDown") { done(); return dropdown(); }
+  if (e.key === "Backspace") { done(); if (hasContent(selected())) say("내용을 지우려면 Delete를 두 번 누르세요."); return; }
+  if (e.key === "Delete") { done(); if (hasContent(selected())) twice("delete", "지우려면 Delete를 한 번 더 누르세요.", clearSelection); return; }
   if (e.altKey) return;
   if (ARROWS[e.key]) { done(); const [dv, dc] = ARROWS[e.key]; const to = ctrl ? jump(dv, dc) : [cursor.v + dv, cursor.c + dc]; return select(to[0], to[1], e.shiftKey); }
   if (ctrl) {
@@ -917,8 +950,6 @@ ed.addEventListener("keydown", e => {
   else if (e.key === "End") { done(); select(cursor.v, NC - 1, e.shiftKey); }
   else if (e.key === "PageUp" || e.key === "PageDown") { done(); select(cursor.v + (e.key === "PageUp" ? -20 : 20), cursor.c, e.shiftKey); }
   else if (e.key === "F2") { done(); startEdit(false); }
-  else if (e.key === "Delete") { done(); clearSelection(); }
-  else if (e.key === "Backspace") { done(); startEdit(true); }
   else if (e.key === "Escape") { done(); clip = null; closeMenu(); say(""); select(cursor.v, cursor.c); }
 });
 ed.addEventListener("compositionstart", () => startEdit(true));
@@ -1165,22 +1196,28 @@ function lock(message) {
   online = false; clearInterval(poll); password = ""; since = 0; editing = null; ed.classList.remove("editing");
   rows.clear(); order = []; view = []; undos.length = redos.length = 0; clip = null; closeMenu(); body.replaceChildren();
   store(SECRET, null); store(SECRET, null, sessionStorage);
-  $("app").hidden = true; $("login").hidden = false; $("loginmsg").textContent = message || ""; $("pw").value = ""; $("pw").focus();
+  askPassword(message);
 }
+function showLogin(needsPassword, message) {
+  $("app").hidden = true; $("login").hidden = false; $("pwbox").hidden = !needsPassword;
+  $("openbutton").textContent = needsPassword ? "열기" : "다시 시도"; $("loginmsg").textContent = message || "";
+}
+function askPassword(message) { showLogin(true, message); $("pw").value = ""; $("pw").focus(); }
 async function open(value, keep) {
   password = value; since = 0; rows.clear(); $("loginmsg").textContent = "여는 중…";
   try { await pull(); }
   catch (e) {
-    if (e.status === 403 || e.status === 429) return lock(e.message);
-    $("login").hidden = false; $("app").hidden = true; $("loginmsg").textContent = e.message; return;
+    if (e.status === 403 || e.status === 429) return lock(value ? e.message : "");
+    return showLogin(!!value, e.message);
   }
-  store(SECRET, value, sessionStorage); if (keep) store(SECRET, value);
+  if (value) { store(SECRET, value, sessionStorage); if (keep) store(SECRET, value); }
+  $("lock").hidden = !value;
   for (const [id, set] of Object.entries(pending)) rows.set(id, overlay(rows.get(id) || { id }, set));   // 지난번에 저장하지 못한 내용
   online = true; $("login").hidden = true; $("app").hidden = false; $("loginmsg").textContent = "";
   reorder(); refreshView(true); render(); select(0, 0, false, true); focusGrid(); showState(); offerOld(); sync();
   clearInterval(poll); poll = setInterval(() => { if (!document.hidden) sync(); }, 5000);
 }
-$("login").onsubmit = e => { e.preventDefault(); open($("pw").value, $("keep").checked); };
+$("login").onsubmit = e => { e.preventDefault(); open($("pwbox").hidden ? "" : $("pw").value, $("keep").checked); };
 $("lock").onclick = async () => {
   if (editing) endEdit(true);
   await sync(); await sync();
@@ -1192,6 +1229,6 @@ addEventListener("online", () => sync());
 addEventListener("beforeunload", e => { if (editing) endEdit(true); if (Object.keys(pending).length) { sync(); e.preventDefault(); } });
 head();
 const remembered = stored(SECRET, "", sessionStorage) || stored(SECRET, "");
-if (remembered) open(remembered, !!stored(SECRET, "")); else { $("login").hidden = false; }
+open(remembered, !!remembered && !!stored(SECRET, ""));
 </script>
 </body></html>
