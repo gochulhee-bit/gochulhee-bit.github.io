@@ -65,6 +65,12 @@ dialog button{padding:0}
 .swatches input:checked+span{border-color:var(--fg)}
 .swatches input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
 #error{color:var(--red);margin:0;padding:0 10px;font-size:12px}
+.word{display:inline-block;border-radius:4px;color:#fff!important;font-weight:700;white-space:nowrap}
+.w1{background:#c92f36!important}.w2{background:#0b62a8!important}.w3{background:#1b7a38!important}
+.day .chip .who.word{font-size:10px;line-height:15px;padding:0 3px;margin-right:3px}
+.events .open .who.word,#results .who.word{font-size:11px;line-height:17px;padding:0 5px}
+#icons span.word{font-size:12px;line-height:20px;padding:2px 6px}
+#iconbtn .word{font-size:10px;line-height:18px;padding:0 3px}
 #error:not(:empty){padding-block:6px}
 .events .open{white-space:pre-line}
 aside h2{font-size:20px;margin:0 0 8px}
@@ -188,7 +194,8 @@ const API = "https://selfchek-api.toorang2.workers.dev";
 const EVENTS = "calendar.events.v1";     // 서버 연결 전에 이 브라우저에만 저장했던 일정
 const CACHE = "calendar.cache.v2";       // 서버에 접속하지 못할 때 보여줄 마지막 일정
 const MYICON = "calendar.icon";
-const ICONS = ["🚒","🧯","🦊","🐳","🐻","🐰","🐯","🐶","🐱","🐼","🦁","🐸","⭐","🍀","🌙","⚽"];
+const WORDS = { "종합": "w1", "작동": "w2", "완비": "w3" };   // 글자 아이콘
+const ICONS = [...Object.keys(WORDS), "🚒","🧯","🦊","🐳","🐻","🐰","🐯","🐶","🐱","🐼","🦁","🐸","⭐","🍀","🌙","⚽"];
 const COLORS = [["파랑","#dcebff","#0b4f8a"],["초록","#dcf4e1","#1b6b32"],["노랑","#fff2c2","#6b5200"],["빨강","#ffdede","#a11d25"],["보라","#ece2ff","#52309a"],["회색","#e9eaee","#31333f"]];
 const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parse(s)) && iso(parse(s)) === s;
 function clean(list) {               // 저장·백업 자료 중 올바른 일정만
@@ -201,7 +208,7 @@ function clean(list) {               // 저장·백업 자료 중 올바른 일�
     icon: typeof e.icon === "string" ? [...e.icon].slice(0, 4).join("") : ""
   }));
 }
-const iconTag = e => el("span", e.icon || "·", "who");
+const iconTag = e => el("span", e.icon || "·", WORDS[e.icon] ? `who word ${WORDS[e.icon]}` : "who");
 function readList(key) { try { return clean(JSON.parse(localStorage.getItem(key) || "[]")); } catch { return []; } }
 const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
 let events = readList(CACHE), version = 0, loaded = false;
@@ -276,6 +283,9 @@ function place(key) {                // 누른 날짜 칸 위에 입력칸을 �
   const top = Math.max(8, Math.min(r.top, root.clientHeight - box.offsetHeight - 8));
   box.style.left = `${left + scrollX}px`; box.style.top = `${top + scrollY}px`;
 }
+function showMine(icon) {             // 도구 막대의 내 아이콘 버튼
+  $("iconbtn").replaceChildren(icon ? iconTag({ icon }) : "🙂");
+}
 function edit(e, key) {
   if (saving) return;
   editing = e; editKey = key;
@@ -292,7 +302,7 @@ function edit(e, key) {
   $("iconbtn").hidden = !!e;       // 입력자 아이콘은 처음 값 그대로
   let mine = ""; try { mine = localStorage.getItem(MYICON) || ""; } catch {}
   $("icons").querySelectorAll("input").forEach(i => i.checked = i.value === mine);
-  $("iconbtn").textContent = mine || "🙂";
+  showMine(mine);
   $("fdelete").hidden = !e; $("fdelete").textContent = "🗑️"; delete $("fdelete").dataset.sure;
   $("error").textContent = "";
   openPanel(!e && !mine ? "iconbox" : "");
@@ -302,8 +312,8 @@ function edit(e, key) {
 $("icons").append(...ICONS.map(icon => {
   const label = el("label"), input = el("input");
   input.type = "radio"; input.name = "icon"; input.value = icon;
-  input.onchange = () => { store(MYICON, icon); $("iconbtn").textContent = icon; $("error").textContent = ""; openPanel(""); $("ftext").focus(); };
-  label.append(input, el("span", icon)); return label;
+  input.onchange = () => { store(MYICON, icon); showMine(icon); $("error").textContent = ""; openPanel(""); $("ftext").focus(); };
+  label.append(input, el("span", icon, WORDS[icon] ? `word ${WORDS[icon]}` : "")); return label;
 }));
 $("swatches").append(...COLORS.map(([name, bg, fg], i) => {
   const label = el("label"), input = el("input"), chip = el("span", name);
