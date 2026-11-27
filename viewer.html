@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>한글 파일 보기</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>파일 보기</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src https://cdn.jsdelivr.net https://selfchek-api.toorang2.workers.dev; img-src blob: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <style>
 :root{color-scheme:light}
@@ -14,22 +14,34 @@ p{margin:0;padding:10px 16px;text-align:center}
 #msg{font-weight:700}
 #pages{display:grid;justify-items:center;gap:14px;padding:0 12px 24px}
 #pages img{display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.18)}
+#tabs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:0 16px 10px}
+#tabs button{padding:2px 12px;font-size:13px}
+#tabs button[aria-pressed=true]{border-color:#ff4b4b;color:#ff4b4b;font-weight:700}
+.sheet{justify-self:stretch;overflow:auto;text-align:center}
+.sheet table{display:inline-table;table-layout:fixed;border-collapse:collapse;background:#fff;text-align:left;font:11pt/1.3 "맑은 고딕","Malgun Gothic","Noto Sans KR",sans-serif;color:#000;box-shadow:0 1px 8px rgba(0,0,0,.18)}
+.sheet td{border:1px dotted #d3d5da;padding:0 3px;white-space:pre;overflow:hidden;vertical-align:bottom}
 @media print{
   body{background:#fff}
-  header,p{display:none!important}
+  header,p,#tabs{display:none!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet{overflow:visible}
+  .sheet table{box-shadow:none}
+  .sheet td{border:0}
+  .sheet tr{break-inside:avoid}
   #pages{display:block;padding:0}
   #pages img{max-width:none;box-shadow:none;object-fit:contain;break-after:page}
   #pages img:last-child{break-after:auto}
 }
 </style></head><body>
 <header>
-  <h1 id="name">한글 파일 보기</h1>
+  <h1 id="name">파일 보기</h1>
   <button type="button" id="print" disabled>🖨️ 인쇄</button>
   <a id="download" hidden>내려받기</a>
   <a href="form.html">양식 목록</a>
 </header>
 <p id="msg" role="status">불러오는 중입니다…</p>
-<p class="note">미리보기는 표·글꼴·쪽 나눔이 원본과 다를 수 있습니다. 제출용 서류는 한글 프로그램에서 확인한 뒤 인쇄하세요.</p>
+<p class="note" id="note">미리보기는 표·글꼴·쪽 나눔이 원본과 다를 수 있습니다. 제출용 서류는 원래 프로그램에서 확인한 뒤 인쇄하세요.</p>
+<div id="tabs" hidden></div>
 <div id="pages"></div>
 <script type="module">
 const API = "https://selfchek-api.toorang2.workers.dev";
@@ -39,9 +51,241 @@ const $ = id => document.getElementById(id);
 const say = text => { $("msg").textContent = text; $("msg").hidden = !text; };
 $("print").onclick = () => print();
 
+// ───── 엑셀(.xlsx) 표시: 외부 서비스 없이 브라우저에서 직접 읽습니다 ─────
+const MAX_ROWS = 3000, MAX_COLS = 100;
+const tags = (node, name) => node ? [...node.getElementsByTagNameNS("*", name)] : [];
+const kid = (node, name) => node ? [...node.children].find(c => c.localName === name) : undefined;
+async function unzip(buffer) {
+  const v = new DataView(buffer), files = {};
+  let end = buffer.byteLength - 22;
+  while (end >= 0 && v.getUint32(end, true) !== 0x06054b50) end--;
+  if (end < 0) throw new Error("zip");
+  let p = v.getUint32(end + 16, true);
+  for (let i = v.getUint16(end + 10, true); i > 0; i--) {
+    const len = v.getUint16(p + 28, true);
+    files[new TextDecoder().decode(new Uint8Array(buffer, p + 46, len))] = { method: v.getUint16(p + 10, true), size: v.getUint32(p + 20, true), at: v.getUint32(p + 42, true) };
+    p += 46 + len + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
+  }
+  return async name => {
+    const f = files[name]; if (!f) return null;
+    const start = f.at + 30 + v.getUint16(f.at + 26, true) + v.getUint16(f.at + 28, true);
+    let blob = new Blob([new Uint8Array(buffer, start, f.size)]);
+    if (f.method === 8) blob = await new Response(blob.stream().pipeThrough(new DecompressionStream("deflate-raw"))).blob();
+    return new DOMParser().parseFromString(await blob.text(), "application/xml");
+  };
+}
+const text = node => tags(node, "t").filter(t => t.parentNode.localName !== "rPh").map(t => t.textContent).join("");
+const position = ref => {             // "B3" → [2, 1]
+  const m = /^([A-Z]+)(\d+)$/.exec(ref || "");
+  return m ? [+m[2] - 1, [...m[1]].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1] : null;
+};
+const BUILTIN = { 1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00", 9: "0%", 10: "0.00%", 14: "yyyy-mm-dd", 15: "d-mmm-yy", 16: "d-mmm", 17: "mmm-yy",
+  18: "h:mm", 19: "h:mm:ss", 20: "h:mm", 21: "h:mm:ss", 22: "yyyy-mm-dd h:mm", 27: "yyyy-mm-dd", 30: "yyyy-mm-dd", 31: "yyyy-mm-dd", 36: "yyyy-mm-dd",
+  37: "#,##0", 38: "#,##0", 39: "#,##0.00", 40: "#,##0.00", 45: "mm:ss", 46: "h:mm:ss", 47: "mm:ss", 50: "yyyy-mm-dd", 57: "yyyy-mm-dd", 58: "yyyy-mm-dd" };
+function formatNumber(n, code, mac) {
+  if (!code || /^(general|@)$/i.test(code)) return String(+n.toPrecision(11));
+  const sections = code.split(";");
+  let part = (n < 0 && sections[1]) || (n === 0 && sections[2]) || sections[0];
+  const bare = part.replace(/"[^"]*"|\\.|\[[^\]]*\]|_.|\*./g, "");
+  if (/[ymdhs]|aaa/i.test(bare) && !/[0#]/.test(bare.replace(/s\.0+/i, "s"))) return formatDate(n + (mac ? 1462 : 0), part);
+  part = part.replace(/\[\$([^\]-]*)[^\]]*\]/g, "$1").replace(/\[[^\]]*\]/g, "").replace(/_./g, " ").replace(/\*./g, "");
+  const literal = s => s.replace(/"([^"]*)"|\\(.)/g, (_, a, b) => a ?? b);
+  const m = /[0#?][0#?,]*(\.[0#?]+)?,*/.exec(part.replace(/"[^"]*"|\\./g, x => " ".repeat(x.length)));
+  if (!m) return literal(part);
+  const digits = m[1] ? m[1].length - 1 : 0, fixed = m[1] ? (m[1].match(/0/g) || []).length : 0;
+  let value = Math.abs(n) * (part.includes("%") ? 100 : 1) / 1000 ** (/,*$/.exec(m[0])[0].length);
+  const body = value.toLocaleString("en-US", { minimumFractionDigits: fixed, maximumFractionDigits: digits, useGrouping: /[0#?],[0#?]/.test(m[0]) });
+  const sign = n < 0 && !sections[1] ? "-" : "";
+  return sign + literal(part.slice(0, m.index)) + body + literal(part.slice(m.index + m[0].length));
+}
+function formatDate(serial, code) {
+  const d = new Date(Math.round((serial - 25569) * 86400) * 1000);
+  if (isNaN(d)) return String(serial);
+  const two = x => String(x).padStart(2, "0"), ampm = /AM\/PM|오전\/오후/i.test(code);
+  let afterHour = false;
+  return code.replace(/\[\$[^\]]*\]/g, "").replace(/"([^"]*)"|\\(.)|AM\/PM|오전\/오후|y+|m+|d+|h+|s+|a{3,4}|\[[^\]]*\]|_.|\*./gi, (token, quoted, escaped, at, whole) => {
+    if (quoted !== undefined) return quoted;
+    if (escaped !== undefined) return escaped;
+    const t = token.toLowerCase();
+    if (t === "am/pm" || t === "오전/오후") return d.getUTCHours() < 12 ? "오전" : "오후";
+    if (t[0] === "y") return t.length > 2 ? d.getUTCFullYear() : two(d.getUTCFullYear() % 100);
+    if (t[0] === "d") return t.length > 2 ? "일월화수목금토"[d.getUTCDay()] + (t.length > 3 ? "요일" : "") : t.length > 1 ? two(d.getUTCDate()) : d.getUTCDate();
+    if (t[0] === "a") return "일월화수목금토"[d.getUTCDay()] + (t.length > 3 ? "요일" : "");
+    if (t[0] === "h") { afterHour = true; const h = ampm ? d.getUTCHours() % 12 || 12 : d.getUTCHours(); return t.length > 1 ? two(h) : h; }
+    if (t[0] === "s") { afterHour = false; return t.length > 1 ? two(d.getUTCSeconds()) : d.getUTCSeconds(); }
+    if (t[0] === "m") {
+      const minute = afterHour || /^[^ymdhs]*s/i.test(whole.slice(at + token.length)); afterHour = false;
+      const value = minute ? d.getUTCMinutes() : d.getUTCMonth() + 1;
+      return t.length > 1 ? two(value) : value;
+    }
+    return "";
+  });
+}
+const INDEXED = "000000 FFFFFF FF0000 00FF00 0000FF FFFF00 FF00FF 00FFFF 000000 FFFFFF FF0000 00FF00 0000FF FFFF00 FF00FF 00FFFF 800000 008000 000080 808000 800080 008080 C0C0C0 808080 9999FF 993366 FFFFCC CCFFFF 660066 FF8080 0066CC CCCCFF 000080 FF00FF FFFF00 00FFFF 800080 800000 008080 0000FF 00CCFF CCFFFF CCFFCC FFFF99 99CCFF FF99CC CC99FF FFCC99 3366FF 33CCCC 99CC00 FFCC00 FF9900 FF6600 666699 969696 003366 339966 003300 333300 993300 993366 333399 333333".split(" ");
+function colorOf(node, theme) {
+  if (!node) return "";
+  let hex = node.getAttribute("rgb")?.slice(-6) || INDEXED[node.getAttribute("indexed")] || theme[node.getAttribute("theme")];
+  if (!/^[0-9a-f]{6}$/i.test(hex || "")) return "";
+  const tint = +node.getAttribute("tint") || 0;
+  return "#" + hex.match(/../g).map(x => {
+    const c = parseInt(x, 16);
+    return Math.round(tint < 0 ? c * (1 + tint) : c + (255 - c) * tint).toString(16).padStart(2, "0");
+  }).join("");
+}
+async function readStyles(read) {
+  const doc = await read("xl/styles.xml"), themeDoc = await read("xl/theme/theme1.xml");
+  const scheme = tags(themeDoc, "clrScheme")[0];
+  const theme = scheme ? [...scheme.children].map(c => c.firstElementChild?.getAttribute("lastClr") || c.firstElementChild?.getAttribute("val")) : [];
+  [theme[0], theme[1], theme[2], theme[3]] = [theme[1], theme[0], theme[3], theme[2]];   // 엑셀은 밝은색·어두운색 순서가 반대
+  const list = (name, item) => { const box = tags(doc, name)[0]; return box ? [...box.children].filter(c => c.localName === item) : []; };
+  const formats = { ...BUILTIN };
+  list("numFmts", "numFmt").forEach(f => formats[f.getAttribute("numFmtId")] = f.getAttribute("formatCode"));
+  const fonts = list("fonts", "font"), fills = list("fills", "fill"), borders = list("borders", "border");
+  return list("cellXfs", "xf").map(xf => {
+    const css = {}, font = fonts[xf.getAttribute("fontId")], fill = kid(fills[xf.getAttribute("fillId")], "patternFill");
+    const border = borders[xf.getAttribute("borderId")], align = kid(xf, "alignment");
+    const on = name => { const n = kid(font, name); return n && !["0", "false", "none"].includes(n.getAttribute("val")); };
+    if (on("b")) css.fontWeight = "700";
+    if (on("i")) css.fontStyle = "italic";
+    if (on("u")) css.textDecoration = "underline";
+    const size = +kid(font, "sz")?.getAttribute("val"); if (size) css.fontSize = `${size}pt`;
+    const fg = colorOf(kid(font, "color"), theme); if (fg) css.color = fg;
+    if (fill?.getAttribute("patternType") === "solid") { const bg = colorOf(kid(fill, "fgColor"), theme); if (bg) css.backgroundColor = bg; }
+    let drawn = !!css.backgroundColor;
+    for (const [tag, side] of [["left", "Left"], ["right", "Right"], ["top", "Top"], ["bottom", "Bottom"]]) {
+      const edge = kid(border, tag) || kid(border, tag === "left" ? "start" : tag === "right" ? "end" : tag), kind = edge?.getAttribute("style");
+      if (!kind) continue;
+      const width = /thick/.test(kind) ? 3 : /medium|double/.test(kind) ? 2 : 1;
+      css[`border${side}`] = `${kind === "double" ? 3 : width}px ${kind === "double" ? "double" : /dash/i.test(kind) ? "dashed" : /dot|hair/i.test(kind) ? "dotted" : "solid"} ${colorOf(kid(edge, "color"), theme) || "#000000"}`;
+      drawn = true;
+    }
+    const h = align?.getAttribute("horizontal"), vertical = align?.getAttribute("vertical");
+    if (h && h !== "general") css.textAlign = h === "centerContinuous" || h === "distributed" ? "center" : h === "fill" ? "left" : h;
+    css.verticalAlign = vertical === "top" ? "top" : vertical === "center" ? "middle" : "bottom";
+    const wrap = ["1", "true"].includes(align?.getAttribute("wrapText")); if (wrap) css.whiteSpace = "pre-wrap";
+    return { css, drawn, wrap, format: formats[xf.getAttribute("numFmtId")] };
+  });
+}
+async function openWorkbook(buffer) {
+  const read = await unzip(buffer), book = await read("xl/workbook.xml");
+  if (!book) throw new Error("not xlsx");
+  const shared = tags(await read("xl/sharedStrings.xml"), "si").map(text), styles = await readStyles(read);
+  const mac = ["1", "true"].includes(tags(book, "workbookPr")[0]?.getAttribute("date1904"));
+  const rels = tags(await read("xl/_rels/workbook.xml.rels"), "Relationship");
+  return tags(book, "sheet").filter(s => !/hidden/i.test(s.getAttribute("state") || "")).map(s => {
+    const id = s.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    const target = rels.find(r => r.getAttribute("Id") === id)?.getAttribute("Target") || "";
+    return { name: s.getAttribute("name"), load: async () => table(await read(target.startsWith("/") ? target.slice(1) : "xl/" + target), shared, styles, mac) };
+  });
+}
+function table(doc, shared, styles, mac) {
+  const cells = new Map(), heights = new Map(), hiddenRows = new Set();
+  let rows = 0, cols = 0, cut = false, next = 0;
+  for (const row of tags(doc, "row")) {
+    const r = +row.getAttribute("r") - 1 || next; next = r + 1;
+    if (row.getAttribute("ht")) heights.set(r, +row.getAttribute("ht"));
+    if (["1", "true"].includes(row.getAttribute("hidden"))) hiddenRows.add(r);
+    let column = 0;
+    for (const c of tags(row, "c")) {
+      const col = position(c.getAttribute("r"))?.[1] ?? column; column = col + 1;
+      const type = c.getAttribute("t"), raw = kid(c, "v")?.textContent ?? "", style = styles[+c.getAttribute("s") || 0];
+      const number = (!type || type === "n") && raw !== "";
+      const value = type === "s" ? shared[+raw] ?? "" : type === "inlineStr" ? text(c) : type === "b" ? (raw === "1" ? "TRUE" : "FALSE")
+        : number ? formatNumber(Number(raw), style?.format, mac) : raw;
+      if (value === "" && !style?.drawn) continue;
+      if (r >= MAX_ROWS || col >= MAX_COLS) { cut = true; continue; }
+      cells.set(`${r},${col}`, { value, style, number });
+      rows = Math.max(rows, r + 1); cols = Math.max(cols, col + 1);
+    }
+  }
+  const spans = new Map(), covered = new Set();
+  for (const m of tags(doc, "mergeCell")) {
+    const [a, b] = (m.getAttribute("ref") || "").split(":").map(position);
+    if (!a || !b || a[0] >= rows || a[1] >= cols) continue;
+    const lastRow = Math.min(b[0], MAX_ROWS - 1), lastCol = Math.min(b[1], MAX_COLS - 1);
+    rows = Math.max(rows, lastRow + 1); cols = Math.max(cols, lastCol + 1);
+    spans.set(`${a}`, [lastRow, lastCol, a]);
+    for (let r = a[0]; r <= lastRow; r++) for (let c = a[1]; c <= lastCol; c++) if (r !== a[0] || c !== a[1]) covered.add(`${r},${c}`);
+  }
+  if (!rows) return null;
+  const widths = Array(cols).fill(null), hiddenCols = new Set();
+  const normal = +tags(doc, "sheetFormatPr")[0]?.getAttribute("defaultColWidth") || 8.43;
+  for (const c of tags(doc, "col")) {
+    for (let i = +c.getAttribute("min") - 1; i < Math.min(+c.getAttribute("max"), cols); i++) {
+      widths[i] = +c.getAttribute("width") || null;
+      if (["1", "true"].includes(c.getAttribute("hidden"))) hiddenCols.add(i);
+    }
+  }
+  const out = document.createElement("table"), group = document.createElement("colgroup");
+  let total = 0;
+  for (let c = 0; c < cols; c++) {
+    if (hiddenCols.has(c)) continue;
+    const col = document.createElement("col"), px = Math.round((widths[c] ?? normal) * 7 + 5);
+    col.style.width = `${px}px`; total += px; group.append(col);
+  }
+  out.style.width = `${total}px`; out.append(group);
+  const body = out.createTBody();
+  for (let r = 0; r < rows; r++) {
+    if (hiddenRows.has(r)) continue;
+    const tr = body.insertRow();
+    tr.style.height = `${heights.get(r) ?? 16.5}pt`;
+    for (let c = 0; c < cols; c++) {
+      const key = `${r},${c}`;
+      if (hiddenCols.has(c) || covered.has(key)) continue;
+      const td = tr.insertCell(), cell = cells.get(key), span = spans.get(key);
+      if (cell) {
+        td.textContent = cell.value;
+        if (cell.number) td.style.textAlign = "right";
+        Object.assign(td.style, cell.style?.css);
+        const align = cell.style?.css.textAlign;            // 엑셀처럼 긴 글자는 오른쪽 빈 칸으로 넘겨 보여 줍니다
+        if (!span && !cell.number && !cell.style?.wrap && (!align || align === "left") && !cells.get(`${r},${c + 1}`)?.value && !covered.has(`${r},${c + 1}`)) td.style.overflow = "visible";
+      }
+      if (span) {
+        const [lastRow, lastCol, [r0, c0]] = span;
+        let h = 0, w = 0;
+        for (let i = r0; i <= lastRow; i++) if (!hiddenRows.has(i)) h++;
+        for (let i = c0; i <= lastCol; i++) if (!hiddenCols.has(i)) w++;
+        td.rowSpan = h || 1; td.colSpan = w || 1;
+        const right = cells.get(`${r0},${lastCol}`)?.style?.css, bottom = cells.get(`${lastRow},${c0}`)?.style?.css;
+        if (right?.borderRight) td.style.borderRight = right.borderRight;
+        if (bottom?.borderBottom) td.style.borderBottom = bottom.borderBottom;
+      }
+    }
+  }
+  return { element: out, width: total, cut };
+}
+async function showWorkbook(bytes) {
+  const sheets = await openWorkbook(bytes.buffer);
+  if (!sheets.length) throw new Error("no sheets");
+  const pageStyle = document.createElement("style"); document.head.append(pageStyle);
+  let serial = 0;
+  const select = async index => {
+    const mine = ++serial;
+    $("print").disabled = true; say("표를 그리는 중입니다…");
+    [...$("tabs").children].forEach((b, i) => b.setAttribute("aria-pressed", i === index));
+    const sheet = await sheets[index].load();
+    if (mine !== serial) return;
+    const box = document.createElement("div"); box.className = "sheet";
+    if (sheet) box.append(sheet.element);
+    $("pages").replaceChildren(box);
+    say(!sheet ? "이 시트에는 내용이 없습니다." : sheet.cut ? `큰 시트라 처음 ${MAX_ROWS}행 × ${MAX_COLS}열까지만 표시합니다.` : "");
+    if (!sheet) return;
+    const wide = sheet.width > 718, room = wide ? 1046 : 718;   // A4에서 여백 10mm를 뺀 너비
+    pageStyle.textContent = `@page{size:A4 ${wide ? "landscape" : "portrait"};margin:10mm}@media print{.sheet table{zoom:${Math.min(1, room / sheet.width).toFixed(3)}}}`;
+    $("print").disabled = false;
+  };
+  $("tabs").hidden = sheets.length < 2;
+  $("tabs").replaceChildren(...sheets.map((s, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = s.name;
+    b.onclick = () => select(i).catch(fail); return b;
+  }));
+  await select(0);
+}
+
 class Failure extends Error {}
+const fail = e => { console.error(e); say(e instanceof Failure ? e.message : "이 파일은 미리보기를 할 수 없습니다. 내려받아 원래 프로그램에서 열어 주세요."); };
 async function open() {
-  const query = new URLSearchParams(location.search), id = query.get("id") || "", name = query.get("name") || "한글 파일";
+  const query = new URLSearchParams(location.search), id = query.get("id") || "", name = query.get("name") || "파일";
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Failure("파일 주소가 올바르지 않습니다. 양식 목록에서 다시 눌러 주세요.");
   $("name").textContent = name; document.title = name;
   $("download").href = `${API}/file/${id}`; $("download").hidden = false;
@@ -55,6 +299,11 @@ async function open() {
   } catch (e) {
     if (e instanceof Failure) throw e;
     throw new Failure("파일을 불러오지 못했습니다. 서버 코드(worker-v4)가 적용됐는지, 인터넷 연결이 정상인지 확인하세요.");
+  }
+
+  if (/\.xlsx$/i.test(name)) {
+    $("note").textContent = "그림·차트·머리글은 표시되지 않으며, 글꼴과 쪽 나눔이 원본과 다를 수 있습니다. 인쇄하면 지금 보는 시트만 너비에 맞춰 인쇄합니다.";
+    return showWorkbook(bytes);
   }
 
   say("한글 보기 프로그램을 준비하는 중입니다… (처음에는 오래 걸릴 수 있습니다)");
@@ -90,9 +339,6 @@ async function open() {
   }
   say(""); $("print").disabled = false;
 }
-open().catch(e => {
-  console.error(e);
-  say(e instanceof Failure ? e.message : "이 파일은 미리보기를 할 수 없습니다. 내려받아 한글 프로그램에서 열어 주세요.");
-});
+open().catch(fail);
 </script>
 </body></html>

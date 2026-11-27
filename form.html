@@ -41,7 +41,7 @@ main{padding-bottom:90px}
     <input type="file" id="file" aria-label="올릴 양식 파일" accept=".hwp,.hwpx,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" required>
     <button id="send" disabled>업로드</button>
   </form>
-  <p class="small">한글, PDF, 워드, 엑셀, 파워포인트 파일(10MB 이하)을 올릴 수 있습니다. 올린 파일은 누구나 보고 내려받을 수 있으니 개인정보가 담긴 파일은 올리지 마세요. <b>보기·인쇄</b>: PDF는 브라우저, 워드·엑셀·파워포인트는 Microsoft 온라인 뷰어, 한글(HWP)은 시험 중인 미리보기로 엽니다(원본과 모양이 다를 수 있음). 삭제하려면 비밀번호가 필요합니다.</p>
+  <p class="small">한글, PDF, 워드, 엑셀, 파워포인트 파일(10MB 이하)을 올릴 수 있습니다. 올린 파일은 누구나 보고 내려받을 수 있으니 개인정보가 담긴 파일은 올리지 마세요. <b>보기·인쇄</b>: PDF는 브라우저, 한글·엑셀(.xlsx)은 홈페이지 미리보기(원본과 모양이 다를 수 있음), 워드·파워포인트·구형 엑셀(.xls)은 Microsoft 온라인 뷰어로 엽니다(사내망에서 막힐 수 있으며, 이때는 PDF로 올려 주세요). 삭제하려면 비밀번호가 필요합니다.</p>
   <p id="msg" role="status"></p>
   <input type="search" id="search" placeholder="🔍 파일명 검색" aria-label="파일명 검색" autocomplete="off" hidden>
   <p class="small" id="found" role="status"></p>
@@ -84,7 +84,7 @@ function draw() {
     [f.name, f.size < 1048576 ? `${Math.max(1, Math.round(f.size / 1024))} KB` : `${(f.size / 1048576).toFixed(1)} MB`,
       new Date(f.date).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })].forEach(v => tr.insertCell().textContent = v);
     const cell = tr.insertCell();
-    if (String(f.view).startsWith(BASE + "/view/")) {     // PDF는 브라우저에서, 오피스 문서는 Microsoft 뷰어에서
+    if (String(f.view).startsWith(BASE + "/view/") && !/\.xlsx$/i.test(f.name)) {     // PDF는 브라우저에서, 오피스 문서는 Microsoft 뷰어에서
       const a = document.createElement("a");
       a.href = /\.pdf$/i.test(f.name) ? f.view : `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(f.view)}`;
       a.textContent = "보기·인쇄"; a.className = "view"; a.target = "_blank"; a.rel = "noopener noreferrer";
@@ -93,8 +93,8 @@ function draw() {
     if (String(f.url).startsWith(BASE + "/file/")) {
       const a = document.createElement("a"); a.href = f.url; a.textContent = "내려받기"; a.rel = "noopener"; cell.append(a);
     }
-    const hwp = /\.hwpx?$/i.test(f.name) && String(f.url).startsWith(BASE + "/file/") && /\/file\/([0-9a-f-]{36})$/i.exec(f.url);
-    if (hwp) {                                            // 한글 파일은 홈페이지의 미리보기에서
+    const hwp = /\.(hwpx?|xlsx)$/i.test(f.name) && String(f.url).startsWith(BASE + "/file/") && /\/file\/([0-9a-f-]{36})$/i.exec(f.url);
+    if (hwp) {                                            // 한글·엑셀 파일은 홈페이지의 미리보기에서
       const a = document.createElement("a");
       a.href = `viewer.html?id=${hwp[1]}&name=${encodeURIComponent(f.name)}`;
       a.textContent = "보기·인쇄"; a.className = "view"; a.target = "_blank"; a.rel = "noopener";
