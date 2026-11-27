@@ -1,10 +1,10 @@
 // 모든 페이지 맨 위 가운데의 실시간 시계 (한국 시간)  예: 2026년 11월 28일 (토) 07:44  00초
 (() => {
   const style = document.createElement("style");
-  style.textContent = `#clock{position:absolute;z-index:24;top:calc(6px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
-white-space:pre;font:700 15px/22px "Source Sans 3","Noto Sans KR",sans-serif;font-variant-numeric:tabular-nums;color:var(--fg,#31333f);pointer-events:none}
-@media (max-width:480px){#clock{font-size:12.5px}}
-@media screen and (max-width:900px){body:has(h1) h1:first-of-type{margin-top:30px!important}}
+  style.textContent = `#clock{position:absolute;z-index:24;top:calc(4px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
+white-space:pre;font:700 20px/28px "Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-variant-numeric:tabular-nums;color:var(--fg,#31333f);pointer-events:none}
+@media (max-width:480px){#clock{font-size:min(16px,3.8vw)}}
+@media screen and (max-width:900px){body:has(h1) h1:first-of-type{margin-top:36px!important}}
 @media print{#clock{display:none}}`;
   document.head.append(style);
   const clock = document.createElement("div");
