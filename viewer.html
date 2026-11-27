@@ -1,0 +1,98 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>한글 파일 보기</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src https://cdn.jsdelivr.net https://selfchek-api.toorang2.workers.dev; img-src blob: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<style>
+:root{color-scheme:light}
+body{margin:0;background:#e9eaee;color:#31333f;font:15px/1.5 "Noto Sans KR","Malgun Gothic",sans-serif}
+[hidden]{display:none!important}
+header{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 16px;background:#fff;border-bottom:1px solid #d6d6d9}
+h1{flex:1;min-width:200px;margin:0;font-size:16px;word-break:break-all}
+header a,button{border:1px solid #d6d6d9;background:#fff;color:#31333f;border-radius:8px;padding:5px 16px;font:inherit;text-decoration:none;cursor:pointer}
+#print{border-color:#ff4b4b;background:#ff4b4b;color:#fff;font-weight:700}
+#print:disabled{opacity:.5;cursor:default}
+p{margin:0;padding:10px 16px;text-align:center}
+.note{font-size:12.5px;color:#6b6e76}
+#msg{font-weight:700}
+#pages{display:grid;justify-items:center;gap:14px;padding:0 12px 24px}
+#pages img{display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.18)}
+@media print{
+  body{background:#fff}
+  header,p{display:none!important}
+  #pages{display:block;padding:0}
+  #pages img{max-width:none;box-shadow:none;object-fit:contain;break-after:page}
+  #pages img:last-child{break-after:auto}
+}
+</style></head><body>
+<header>
+  <h1 id="name">한글 파일 보기</h1>
+  <button type="button" id="print" disabled>🖨️ 인쇄</button>
+  <a id="download" hidden>내려받기</a>
+  <a href="form.html">양식 목록</a>
+</header>
+<p id="msg" role="status">불러오는 중입니다…</p>
+<p class="note">미리보기는 표·글꼴·쪽 나눔이 원본과 다를 수 있습니다. 제출용 서류는 한글 프로그램에서 확인한 뒤 인쇄하세요.</p>
+<div id="pages"></div>
+<script type="module">
+const API = "https://selfchek-api.toorang2.workers.dev";
+// 한글 파일 해석 라이브러리 rhwp (MIT, github.com/edwardkim/rhwp). 버전을 고정해 둡니다.
+const LIB = "https://cdn.jsdelivr.net/npm/@rhwp/core@0.8.7/";
+const $ = id => document.getElementById(id);
+const say = text => { $("msg").textContent = text; $("msg").hidden = !text; };
+$("print").onclick = () => print();
+
+class Failure extends Error {}
+async function open() {
+  const query = new URLSearchParams(location.search), id = query.get("id") || "", name = query.get("name") || "한글 파일";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Failure("파일 주소가 올바르지 않습니다. 양식 목록에서 다시 눌러 주세요.");
+  $("name").textContent = name; document.title = name;
+  $("download").href = `${API}/file/${id}`; $("download").hidden = false;
+
+  let bytes;
+  try {
+    const res = await fetch(`${API}/file/${id}`, { cache: "no-store" });
+    if (res.status === 404) throw new Failure("삭제되었거나 없는 파일입니다.");
+    if (!res.ok) throw new Error();
+    bytes = new Uint8Array(await res.arrayBuffer());
+  } catch (e) {
+    if (e instanceof Failure) throw e;
+    throw new Failure("파일을 불러오지 못했습니다. 서버 코드(worker-v4)가 적용됐는지, 인터넷 연결이 정상인지 확인하세요.");
+  }
+
+  say("한글 보기 프로그램을 준비하는 중입니다… (처음에는 오래 걸릴 수 있습니다)");
+  let lib;
+  try {
+    lib = await import(LIB + "rhwp.js");
+    const context = document.createElement("canvas").getContext("2d");
+    globalThis.measureTextWidth = (font, text) => { context.font = font; return context.measureText(text).width; };
+    await lib.default({ module_or_path: LIB + "rhwp_bg.wasm" });
+  } catch (e) {
+    console.error(e);
+    throw new Failure("한글 보기 프로그램을 불러오지 못했습니다. 사내망에서 cdn.jsdelivr.net이 차단됐을 수 있습니다. 내려받아 확인하세요.");
+  }
+
+  const doc = new lib.HwpDocument(bytes), total = doc.pageCount();
+  if (!total) throw new Error("no pages");
+  let size;
+  for (let i = 0; i < total; i++) {
+    say(`쪽을 그리는 중입니다… ${i + 1}/${total}`);
+    // 그림(img)으로 넣으면 파일 안에 숨은 스크립트가 있어도 실행되지 않습니다.
+    const img = new Image();
+    img.alt = `${i + 1}쪽`;
+    img.src = URL.createObjectURL(new Blob([doc.renderPageSvg(i)], { type: "image/svg+xml" }));
+    $("pages").append(img);
+    await img.decode();
+    if (!size) {
+      size = [img.naturalWidth, img.naturalHeight];
+      const style = document.createElement("style");   // 인쇄 용지를 문서 크기에 맞춤
+      style.textContent = `@page{size:${size[0]}px ${size[1]}px;margin:0}@media print{#pages img{width:${size[0]}px;height:${size[1] - 1}px}}`;
+      document.head.append(style);
+    }
+    await new Promise(r => setTimeout(r));
+  }
+  say(""); $("print").disabled = false;
+}
+open().catch(e => {
+  console.error(e);
+  say(e instanceof Failure ? e.message : "이 파일은 미리보기를 할 수 없습니다. 내려받아 한글 프로그램에서 열어 주세요.");
+});
+</script>
+</body></html>

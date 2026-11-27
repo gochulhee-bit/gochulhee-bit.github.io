@@ -41,7 +41,7 @@ main{padding-bottom:90px}
     <input type="file" id="file" aria-label="올릴 양식 파일" accept=".hwp,.hwpx,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" required>
     <button id="send" disabled>업로드</button>
   </form>
-  <p class="small">한글, PDF, 워드, 엑셀, 파워포인트 파일(10MB 이하)을 올릴 수 있습니다. 올린 파일은 누구나 보고 내려받을 수 있으니 개인정보가 담긴 파일은 올리지 마세요. <b>보기·인쇄</b>는 PDF·워드·엑셀·파워포인트에서 됩니다(오피스 문서는 Microsoft 온라인 뷰어를 사용). 한글(HWP) 파일은 PDF로 저장해 올리면 바로 볼 수 있습니다. 삭제하려면 비밀번호가 필요합니다.</p>
+  <p class="small">한글, PDF, 워드, 엑셀, 파워포인트 파일(10MB 이하)을 올릴 수 있습니다. 올린 파일은 누구나 보고 내려받을 수 있으니 개인정보가 담긴 파일은 올리지 마세요. <b>보기·인쇄</b>: PDF는 브라우저, 워드·엑셀·파워포인트는 Microsoft 온라인 뷰어, 한글(HWP)은 시험 중인 미리보기로 엽니다(원본과 모양이 다를 수 있음). 삭제하려면 비밀번호가 필요합니다.</p>
   <p id="msg" role="status"></p>
   <input type="search" id="search" placeholder="🔍 파일명 검색" aria-label="파일명 검색" autocomplete="off" hidden>
   <p class="small" id="found" role="status"></p>
@@ -92,6 +92,13 @@ function draw() {
     }
     if (String(f.url).startsWith(BASE + "/file/")) {
       const a = document.createElement("a"); a.href = f.url; a.textContent = "내려받기"; a.rel = "noopener"; cell.append(a);
+    }
+    const hwp = /\.hwpx?$/i.test(f.name) && String(f.url).startsWith(BASE + "/file/") && /\/file\/([0-9a-f-]{36})$/i.exec(f.url);
+    if (hwp) {                                            // 한글 파일은 홈페이지의 미리보기에서
+      const a = document.createElement("a");
+      a.href = `viewer.html?id=${hwp[1]}&name=${encodeURIComponent(f.name)}`;
+      a.textContent = "보기·인쇄"; a.className = "view"; a.target = "_blank"; a.rel = "noopener";
+      a.setAttribute("aria-label", `${f.name} 보기·인쇄`); cell.prepend(a);
     }
     const del = document.createElement("button");
     del.type = "button"; del.textContent = "삭제";
