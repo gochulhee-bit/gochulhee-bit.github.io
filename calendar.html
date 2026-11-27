@@ -34,7 +34,8 @@ aside{border-top:1px solid var(--line);padding-top:16px}
 .day .chip>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:inherit}
 .day .chip .who{flex:none;max-width:none}
 .events .open .who,#results .who{margin-right:6px}
-#icons span{font-size:20px;line-height:1.4;padding:2px 5px}
+.day .chip .who{margin-right:0}
+#icons span{font-size:18px;line-height:1.4;padding:0 2px}
 .duerow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tools input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:4px 10px;width:150px}
@@ -44,20 +45,28 @@ aside .events{margin-bottom:8px}
 .events button{padding:1px 10px;text-align:left}
 .events .open{flex:1;min-width:0;overflow-wrap:anywhere;border-color:transparent}
 #results{margin:0 0 12px;max-height:220px;overflow:auto}
-dialog{border:1px solid var(--line);border-radius:12px;padding:20px;width:min(420px,calc(100vw - 64px));color:var(--fg)}
-dialog::backdrop{background:rgba(0,0,0,.35)}
-dialog h2{margin:0 0 12px;font-size:20px}
-dialog label{display:block;margin:10px 0 3px;font-weight:700;font-size:13px}
-dialog input[type=text],dialog input[type=date],dialog select,dialog textarea{box-sizing:border-box;width:100%;font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px}
-.swatches{display:flex;gap:8px;flex-wrap:wrap}
+dialog{position:absolute;z-index:30;inset:auto;margin:0;padding:0;width:264px;box-sizing:border-box;border:1px solid #cfd1d6;background:#fff;color:var(--fg);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+dialog button{padding:0}
+.top{display:flex;align-items:center;background:#f7f7f8;border-bottom:1px solid var(--line)}
+.top h2{flex:1;margin:0;padding-left:34px;text-align:center;font-size:14px;font-weight:500}
+.top button,.tool{width:34px;height:30px;border:0;border-radius:4px;background:transparent;font-size:16px;line-height:1}
+#save{font-size:20px;font-weight:700}
+#ftext{display:block;box-sizing:border-box;width:100%;height:130px;border:0;padding:8px 10px;font:14px/1.5 inherit;font-family:inherit;color:inherit;resize:none;outline:0}
+.toolbar{display:flex;gap:2px;padding:2px 4px;background:#f7f7f8;border-top:1px solid var(--line)}
+.tool[aria-pressed=true],.tool[aria-expanded=true]{background:#e2e4ea}
+#fdelete{margin-left:auto;font-size:14px;width:auto;min-width:34px;padding:0 6px}
+.panel{padding:8px 10px;border-top:1px solid var(--line)}
+.panel label{display:block;font-size:12px;margin-top:4px}
+.panel input[type=date],.panel select{box-sizing:border-box;width:100%;font:inherit;padding:3px 8px;border:1px solid var(--line);border-radius:6px}
+.swatches{display:flex;gap:5px;flex-wrap:wrap}
 .swatches label{margin:0;position:relative;cursor:pointer}
 .swatches input{position:absolute;opacity:0;inset:0;margin:0}
-.swatches span{display:block;border-radius:6px;padding:3px 10px;border:2px solid transparent}
+.swatches span{display:block;border-radius:6px;padding:2px 8px;border:2px solid transparent}
 .swatches input:checked+span{border-color:var(--fg)}
 .swatches input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
-.actions{display:flex;gap:8px;margin-top:18px}
-.actions .primary{margin-left:auto;background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
-#error{color:var(--red);margin:8px 0 0;font-size:13px}
+#error{color:var(--red);margin:0;padding:0 10px;font-size:12px}
+#error:not(:empty){padding-block:6px}
+.events .open{white-space:pre-line}
 aside h2{font-size:20px;margin:0 0 8px}
 aside h3{font-size:15px;margin:18px 0 6px}
 aside ul{margin:0;padding-left:18px}
@@ -92,27 +101,31 @@ aside ul{margin:0;padding-left:18px}
       <p id="status" class="small" role="status"></p>
       <ul class="events" id="results" hidden></ul>
       <div class="grid" id="grid"></div>
-      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다. 건수는 자체점검 페이지에 올려 둔 파일을 기준으로 합니다.<br>날짜를 두 번 누르면 일정을 추가합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
+      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다. 건수는 자체점검 페이지에 올려 둔 파일을 기준으로 합니다.<br>날짜를 두 번 누르면 바로 입력합니다. Enter 또는 바깥을 누르면 저장, Esc는 취소입니다. 일정을 두 번 누르면 수정합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
     </section>
     <aside id="detail" aria-live="polite"></aside>
   </div>
 </main>
 <dialog id="editor" aria-labelledby="etitle">
   <form id="form" novalidate>
-    <h2 id="etitle">일정</h2>
-    <label for="ftext">내용</label><input type="text" id="ftext" maxlength="100" autocomplete="off">
-    <label for="fdate">날짜</label><input type="date" id="fdate" min="2026-01-01" max="2027-12-31">
-    <label for="frepeat">반복</label>
-    <select id="frepeat"><option value="">반복 안 함</option><option value="week">매주</option><option value="month">매월</option><option value="year">매년</option></select>
-    <div id="untilbox"><label for="funtil">반복 종료일 (비우면 계속)</label><input type="date" id="funtil" min="2026-01-01" max="2027-12-31"></div>
-    <label>색상</label><div class="swatches" id="swatches"></div>
-    <div id="iconbox"><label>내 아이콘 (입력자 표시)</label><div class="swatches" id="icons"></div></div>
+    <div class="top"><h2 id="etitle"></h2><button type="submit" id="save" title="저장 (Enter)" aria-label="저장">✓</button></div>
+    <textarea id="ftext" maxlength="100" aria-label="일정 내용" placeholder="일정을 입력하세요"></textarea>
     <p id="error" role="alert"></p>
-    <div class="actions">
-      <button type="button" id="fdelete">삭제</button>
-      <button type="button" class="primary" id="fcancel" style="background:#fff;color:inherit;border-color:var(--line)">취소</button>
-      <button type="submit" id="save" class="primary" style="margin-left:0">저장</button>
+    <div class="toolbar">
+      <button type="button" class="tool" id="fdone" aria-pressed="false" title="완료 표시" aria-label="완료 표시">✅</button>
+      <button type="button" class="tool" data-panel="colorbox" title="색상" aria-label="색상">🎨</button>
+      <button type="button" class="tool" data-panel="repeatbox" title="반복·날짜 변경" aria-label="반복과 날짜">🔁</button>
+      <button type="button" class="tool" data-panel="iconbox" id="iconbtn" title="내 아이콘" aria-label="내 아이콘">🙂</button>
+      <button type="button" class="tool" id="fdelete" title="삭제" aria-label="삭제">🗑️</button>
     </div>
+    <div class="panel" id="colorbox" hidden><div class="swatches" id="swatches"></div></div>
+    <div class="panel" id="repeatbox" hidden>
+      <label for="fdate">날짜</label><input type="date" id="fdate" min="2026-01-01" max="2027-12-31">
+      <label for="frepeat">반복</label>
+      <select id="frepeat"><option value="">반복 안 함</option><option value="week">매주</option><option value="month">매월</option><option value="year">매년</option></select>
+      <div id="untilbox"><label for="funtil">반복 종료일 (비우면 계속)</label><input type="date" id="funtil" min="2026-01-01" max="2027-12-31"></div>
+    </div>
+    <div class="panel" id="iconbox" hidden><div class="swatches" id="icons"></div></div>
   </form>
 </dialog>
 <nav><a href="./">자체점검</a><a href="calendar.html" aria-current="page">달력</a><a href="form.html">양식</a></nav>
@@ -248,28 +261,48 @@ function eventRow(e, key, label) {   // 목록 한 줄: 완료 체크 + 내용(�
   li.append(check, open);
   return li;
 }
-let editing = null;
+let editing = null, editKey = "", before = "", saving = false;
+const snapshot = () => JSON.stringify([$("ftext").value.trim(), $("fdate").value, $("frepeat").value, $("funtil").value,
+  $("form").elements.color.value, $("fdone").getAttribute("aria-pressed")]);
+function openPanel(id) {
+  document.querySelectorAll("#editor .panel").forEach(p => p.hidden = p.id !== id);
+  document.querySelectorAll("#editor [data-panel]").forEach(b => b.setAttribute("aria-expanded", b.dataset.panel === id));
+}
+function place(key) {                // 누른 날짜 칸 위에 입력칸을 띄움
+  const box = $("editor"), root = document.documentElement;
+  const cell = $("grid").querySelector(`[data-date="${key}"]`) || $("new");
+  const r = cell.getBoundingClientRect();
+  const left = Math.max(8, Math.min(r.left, root.clientWidth - box.offsetWidth - 8));
+  const top = Math.max(8, Math.min(r.top, root.clientHeight - box.offsetHeight - 8));
+  box.style.left = `${left + scrollX}px`; box.style.top = `${top + scrollY}px`;
+}
 function edit(e, key) {
-  editing = e;
+  if (saving) return;
+  editing = e; editKey = key;
   $("save").disabled = $("fdelete").disabled = false;
-  $("etitle").textContent = e ? (e.repeat ? "반복 일정 수정 (전체 적용)" : "일정 수정") : "일정 추가";
+  const d = parse(key);
+  $("etitle").textContent = `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
   $("ftext").value = e?.title ?? "";
   $("fdate").value = e?.date ?? key;
   $("frepeat").value = e?.repeat ?? "";
   $("funtil").value = e?.until ?? "";
   $("untilbox").hidden = !$("frepeat").value;
   $("swatches").querySelectorAll("input")[e?.color ?? 0].checked = true;
-  $("iconbox").hidden = !!e;       // 입력자 아이콘은 처음 값 그대로
+  $("fdone").setAttribute("aria-pressed", !!e?.done.includes(key));
+  $("iconbtn").hidden = !!e;       // 입력자 아이콘은 처음 값 그대로
   let mine = ""; try { mine = localStorage.getItem(MYICON) || ""; } catch {}
   $("icons").querySelectorAll("input").forEach(i => i.checked = i.value === mine);
-  $("fdelete").hidden = !e; $("fdelete").textContent = e?.repeat ? "반복 전체 삭제" : "삭제"; delete $("fdelete").dataset.sure;
+  $("iconbtn").textContent = mine || "🙂";
+  $("fdelete").hidden = !e; $("fdelete").textContent = "🗑️"; delete $("fdelete").dataset.sure;
   $("error").textContent = "";
-  $("editor").showModal(); $("ftext").focus();
+  openPanel(!e && !mine ? "iconbox" : "");
+  if (!$("editor").open) $("editor").show();
+  place(key); before = snapshot(); $("ftext").focus();
 }
 $("icons").append(...ICONS.map(icon => {
   const label = el("label"), input = el("input");
   input.type = "radio"; input.name = "icon"; input.value = icon;
-  input.onchange = () => store(MYICON, icon);
+  input.onchange = () => { store(MYICON, icon); $("iconbtn").textContent = icon; $("error").textContent = ""; openPanel(""); $("ftext").focus(); };
   label.append(input, el("span", icon)); return label;
 }));
 $("swatches").append(...COLORS.map(([name, bg, fg], i) => {
@@ -278,35 +311,52 @@ $("swatches").append(...COLORS.map(([name, bg, fg], i) => {
   label.append(input, chip); return label;
 }));
 $("frepeat").onchange = () => $("untilbox").hidden = !$("frepeat").value;
-$("fcancel").onclick = () => $("editor").close();
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-$("form").onsubmit = async ev => {
-  ev.preventDefault();
-  if ($("save").disabled) return;
+const closeEditor = () => { $("editor").close(); };
+document.querySelectorAll("#editor [data-panel]").forEach(b => b.onclick = () => {
+  openPanel($(b.dataset.panel).hidden ? b.dataset.panel : ""); place(editKey);
+});
+$("fdone").onclick = () => $("fdone").setAttribute("aria-pressed", $("fdone").getAttribute("aria-pressed") !== "true");
+async function submit(stay) {        // stay: 저장 후 그 날짜를 선택
+  if (saving) return;
   const title = $("ftext").value.trim(), date = $("fdate").value, repeat = $("frepeat").value, until = repeat ? $("funtil").value : "";
-  const icon = $("form").elements.icon.value;
+  const icon = $("form").elements.icon.value, done = $("fdone").getAttribute("aria-pressed") === "true";
+  if (snapshot() === before && (editing || !title)) return closeEditor();
   if (!title) return $("error").textContent = "내용을 입력하세요.";
   if (!isDate(date) || date < "2026-01-01" || date > "2027-12-31") return $("error").textContent = "2026~2027년 날짜를 선택하세요.";
   if (until && until < date) return $("error").textContent = "반복 종료일은 시작 날짜 이후여야 합니다.";
-  if (!editing && !icon) return $("error").textContent = "내 아이콘을 하나 고르세요. 다음부터는 자동으로 선택됩니다.";
+  if (!editing && !icon) { openPanel("iconbox"); place(editKey); return $("error").textContent = "아래에서 내 아이콘을 하나 고르세요. (처음 한 번)"; }
   const data = { title, date, repeat, until, color: +$("form").elements.color.value };
   const latest = editing && events.find(e => e.id === editing.id);
   if (editing && !latest) return $("error").textContent = "다른 PC에서 삭제된 일정입니다.";
-  const item = latest ? { ...latest, ...data, done: latest.date !== date || latest.repeat !== repeat ? [] : latest.done }
-    : { id: newId(), ...data, done: [], icon };
-  $("save").disabled = true; $("error").textContent = "저장 중입니다…";
+  const day = !editing || (!repeat && date !== editKey) ? date : editKey;   // 완료 표시를 할 날짜
+  const kept = latest && latest.date === date && latest.repeat === repeat ? latest.done.filter(x => x !== day) : [];
+  const item = { ...(latest ?? { id: newId(), icon }), ...data, done: done ? [...kept, day] : kept };
+  saving = true; $("save").disabled = true; $("error").textContent = "저장 중입니다…";
   try {
     await send("/events/save", item);
-    say(""); $("editor").close();
-    selected = date; month = date.slice(0, 7); render();
+    say(""); closeEditor();
+    if (stay) { selected = day; month = day.slice(0, 7); render(); }
   } catch (error) { $("error").textContent = error.message; $("save").disabled = false; }
+  saving = false;
+}
+$("form").onsubmit = ev => { ev.preventDefault(); submit(true); };
+$("ftext").onkeydown = ev => {       // Enter 저장, Shift+Enter 줄바꿈 (한글 조합 중에는 무시)
+  if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); submit(true); }
 };
+$("editor").onkeydown = ev => { if (ev.key === "Escape" && !ev.isComposing && !saving) closeEditor(); };
+document.addEventListener("pointerdown", ev => {   // 바깥을 누르면 저장하고 닫음
+  if (!$("editor").open || saving || $("editor").contains(ev.target)) return;
+  if (editing && !$("ftext").value.trim()) return closeEditor();
+  submit(false);
+});
 $("fdelete").onclick = async () => {     // 한 번 더 눌러야 삭제
   const b = $("fdelete");
-  if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = "한 번 더 누르면 삭제"; return; }
-  b.disabled = true;
-  try { await send("/events/delete", { id: editing.id }); say(""); $("editor").close(); }
+  if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = "삭제 확인"; return; }
+  b.disabled = true; saving = true;
+  try { await send("/events/delete", { id: editing.id }); say(""); closeEditor(); }
   catch (error) { $("error").textContent = error.message; b.disabled = false; }
+  saving = false;
 };
 function search() {
   const q = $("search").value.trim().toLowerCase();
@@ -375,10 +425,13 @@ function render() {
       b.append(row);
     }
     const own = eventsOn(key);
-    own.slice(0, 3).forEach(e => { const chip = el("span", null, "chip" + (e.done.includes(key) ? " done" : "")); chip.append(iconTag(e), el("span", e.title)); paint(chip, e); b.append(chip); });
+    own.slice(0, 3).forEach(e => { const chip = el("span", null, "chip" + (e.done.includes(key) ? " done" : "")); chip.append(iconTag(e), el("span", e.title)); chip.dataset.id = e.id; paint(chip, e); b.append(chip); });
     if (own.length > 3) b.append(el("span", `+${own.length - 3}개 더`));
     b.onclick = () => select(key);
-    b.ondblclick = () => edit(null, key);
+    b.ondblclick = ev => {           // 일정 위를 두 번 누르면 수정, 빈 곳이면 새 일정
+      const id = ev.target.closest(".chip")?.dataset.id;
+      edit(events.find(e => e.id === id) ?? null, key);
+    };
     cells.push(b);
   }
   while (cells.length % 7) cells.push(el("div"));
