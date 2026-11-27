@@ -56,7 +56,7 @@ main{padding-bottom:90px}
 </dialog>
 <script>
 // Cloudflare Worker 주소(https://….workers.dev)를 따옴표 안에 넣으세요.
-const API_URL = "";
+const API_URL = "https://selfchek-api.toorang2.workers.dev";
 const BASE = API_URL.replace(/\/+$/, "");
 const $ = id => document.getElementById(id);
 const say = text => $("msg").textContent = text;
