@@ -35,7 +35,7 @@ aside{border-top:1px solid var(--line);padding-top:16px}
 .day .chip .who{flex:none;max-width:none}
 .events .open .who,#results .who{margin-right:6px}
 .day .chip .who{margin-right:0}
-#icons span{font-size:18px;line-height:1.4;padding:0 2px}
+#icons span{font-size:18px;line-height:1.4;padding:0 1px}
 .duerow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tools input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:4px 10px;width:150px}
@@ -45,17 +45,19 @@ aside .events{margin-bottom:8px}
 .events button{padding:1px 10px;text-align:left}
 .events .open{flex:1;min-width:0;overflow-wrap:anywhere;border-color:transparent}
 #results{margin:0 0 12px;max-height:220px;overflow:auto}
-dialog{position:absolute;z-index:30;inset:auto;margin:0;padding:0;width:264px;box-sizing:border-box;border:1px solid #cfd1d6;background:#fff;color:var(--fg);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+dialog{position:absolute;z-index:30;inset:auto;margin:0;padding:0;width:304px;max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box;border:1px solid #cfd1d6;background:#fff;color:var(--fg);box-shadow:0 6px 24px rgba(0,0,0,.25)}
 dialog button{padding:0}
 .top{display:flex;align-items:center;background:#f7f7f8;border-bottom:1px solid var(--line)}
 .top h2{flex:1;margin:0;padding-left:34px;text-align:center;font-size:14px;font-weight:500}
 .top button,.tool{width:34px;height:30px;border:0;border-radius:4px;background:transparent;font-size:16px;line-height:1}
 #save{font-size:20px;font-weight:700}
-#ftext{display:block;box-sizing:border-box;width:100%;height:130px;border:0;padding:8px 10px;font:14px/1.5 inherit;font-family:inherit;color:inherit;resize:none;outline:0}
+#ftext{display:block;box-sizing:border-box;width:100%;height:84px;border:0;padding:8px 10px;font:14px/1.5 inherit;font-family:inherit;color:inherit;resize:none;outline:0}
 .toolbar{display:flex;gap:2px;padding:2px 4px;background:#f7f7f8;border-top:1px solid var(--line)}
 .tool[aria-pressed=true],.tool[aria-expanded=true]{background:#e2e4ea}
 #fdelete{margin-left:auto;font-size:14px;width:auto;min-width:34px;padding:0 6px}
-.panel{padding:8px 10px;border-top:1px solid var(--line)}
+.panel,.pick{padding:7px 10px;border-top:1px solid var(--line)}
+.pick .swatches{gap:3px}
+#swatches span{font-size:12px;padding:1px 5px}
 .panel label{display:block;font-size:12px;margin-top:4px}
 .panel input[type=date],.panel select{box-sizing:border-box;width:100%;font:inherit;padding:3px 8px;border:1px solid var(--line);border-radius:6px}
 .swatches{display:flex;gap:5px;flex-wrap:wrap}
@@ -70,7 +72,6 @@ dialog button{padding:0}
 .day .chip .who.word{font-size:10px;line-height:15px;padding:0 3px;margin-right:3px}
 .events .open .who.word,#results .who.word{font-size:11px;line-height:17px;padding:0 5px}
 #icons span.word{font-size:12px;line-height:20px;padding:2px 6px}
-#iconbtn .word{font-size:10px;line-height:18px;padding:0 3px}
 #error:not(:empty){padding-block:6px}
 .events .open{white-space:pre-line}
 aside h2{font-size:20px;margin:0 0 8px}
@@ -116,22 +117,20 @@ aside ul{margin:0;padding-left:18px}
   <form id="form" novalidate>
     <div class="top"><h2 id="etitle"></h2><button type="submit" id="save" title="저장 (Enter)" aria-label="저장">✓</button></div>
     <textarea id="ftext" maxlength="100" aria-label="일정 내용" placeholder="일정을 입력하세요"></textarea>
+    <div class="pick"><div class="swatches" id="swatches" role="radiogroup" aria-label="색상"></div></div>
+    <div class="pick" id="iconbox"><div class="swatches" id="icons" role="radiogroup" aria-label="내 아이콘"></div></div>
     <p id="error" role="alert"></p>
     <div class="toolbar">
       <button type="button" class="tool" id="fdone" aria-pressed="false" title="완료 표시" aria-label="완료 표시">✅</button>
-      <button type="button" class="tool" data-panel="colorbox" title="색상" aria-label="색상">🎨</button>
       <button type="button" class="tool" data-panel="repeatbox" title="반복·날짜 변경" aria-label="반복과 날짜">🔁</button>
-      <button type="button" class="tool" data-panel="iconbox" id="iconbtn" title="내 아이콘" aria-label="내 아이콘">🙂</button>
       <button type="button" class="tool" id="fdelete" title="삭제" aria-label="삭제">🗑️</button>
     </div>
-    <div class="panel" id="colorbox" hidden><div class="swatches" id="swatches"></div></div>
     <div class="panel" id="repeatbox" hidden>
       <label for="fdate">날짜</label><input type="date" id="fdate" min="2026-01-01" max="2027-12-31">
       <label for="frepeat">반복</label>
       <select id="frepeat"><option value="">반복 안 함</option><option value="week">매주</option><option value="month">매월</option><option value="year">매년</option></select>
       <div id="untilbox"><label for="funtil">반복 종료일 (비우면 계속)</label><input type="date" id="funtil" min="2026-01-01" max="2027-12-31"></div>
     </div>
-    <div class="panel" id="iconbox" hidden><div class="swatches" id="icons"></div></div>
   </form>
 </dialog>
 <nav><a href="./">자체점검</a><a href="calendar.html" aria-current="page">달력</a><a href="form.html">양식</a></nav>
@@ -194,6 +193,7 @@ const API = "https://selfchek-api.toorang2.workers.dev";
 const EVENTS = "calendar.events.v1";     // 서버 연결 전에 이 브라우저에만 저장했던 일정
 const CACHE = "calendar.cache.v2";       // 서버에 접속하지 못할 때 보여줄 마지막 일정
 const MYICON = "calendar.icon";
+const MYCOLOR = "calendar.color";
 const WORDS = { "종합": "w1", "작동": "w2", "완비": "w3" };   // 글자 아이콘
 const ICONS = [...Object.keys(WORDS), "🚒","🧯","🦊","🐳","🐻","🐰","🐯","🐶","🐱","🐼","🦁","🐸","⭐","🍀","🌙","⚽"];
 const COLORS = [["파랑","#dcebff","#0b4f8a"],["초록","#dcf4e1","#1b6b32"],["노랑","#fff2c2","#6b5200"],["빨강","#ffdede","#a11d25"],["보라","#ece2ff","#52309a"],["회색","#e9eaee","#31333f"]];
@@ -283,9 +283,6 @@ function place(key) {                // 누른 날짜 칸 위에 입력칸을 �
   const top = Math.max(8, Math.min(r.top, root.clientHeight - box.offsetHeight - 8));
   box.style.left = `${left + scrollX}px`; box.style.top = `${top + scrollY}px`;
 }
-function showMine(icon) {             // 도구 막대의 내 아이콘 버튼
-  $("iconbtn").replaceChildren(icon ? iconTag({ icon }) : "🙂");
-}
 function edit(e, key) {
   if (saving) return;
   editing = e; editKey = key;
@@ -297,27 +294,29 @@ function edit(e, key) {
   $("frepeat").value = e?.repeat ?? "";
   $("funtil").value = e?.until ?? "";
   $("untilbox").hidden = !$("frepeat").value;
-  $("swatches").querySelectorAll("input")[e?.color ?? 0].checked = true;
+  let color = 0; try { color = +localStorage.getItem(MYCOLOR) || 0; } catch {}
+  const colors = $("swatches").querySelectorAll("input");
+  (colors[e?.color ?? color] ?? colors[0]).checked = true;   // 새 일정은 지난번 색상
   $("fdone").setAttribute("aria-pressed", !!e?.done.includes(key));
-  $("iconbtn").hidden = !!e;       // 입력자 아이콘은 처음 값 그대로
+  $("iconbox").hidden = !!e;       // 입력자 아이콘은 처음 값 그대로
   let mine = ""; try { mine = localStorage.getItem(MYICON) || ""; } catch {}
   $("icons").querySelectorAll("input").forEach(i => i.checked = i.value === mine);
-  showMine(mine);
   $("fdelete").hidden = !e; $("fdelete").textContent = "🗑️"; delete $("fdelete").dataset.sure;
   $("error").textContent = "";
-  openPanel(!e && !mine ? "iconbox" : "");
+  openPanel("");
   if (!$("editor").open) $("editor").show();
   place(key); before = snapshot(); $("ftext").focus();
 }
 $("icons").append(...ICONS.map(icon => {
   const label = el("label"), input = el("input");
   input.type = "radio"; input.name = "icon"; input.value = icon;
-  input.onchange = () => { store(MYICON, icon); showMine(icon); $("error").textContent = ""; openPanel(""); $("ftext").focus(); };
+  input.onchange = () => { store(MYICON, icon); $("error").textContent = ""; $("ftext").focus(); };
   label.append(input, el("span", icon, WORDS[icon] ? `word ${WORDS[icon]}` : "")); return label;
 }));
 $("swatches").append(...COLORS.map(([name, bg, fg], i) => {
   const label = el("label"), input = el("input"), chip = el("span", name);
   input.type = "radio"; input.name = "color"; input.value = i; chip.style.background = bg; chip.style.color = fg;
+  input.onchange = () => { if (!editing) store(MYCOLOR, i); $("ftext").focus(); };
   label.append(input, chip); return label;
 }));
 $("frepeat").onchange = () => $("untilbox").hidden = !$("frepeat").value;
@@ -335,7 +334,7 @@ async function submit(stay) {        // stay: 저장 후 그 날짜를 선택
   if (!title) return $("error").textContent = "내용을 입력하세요.";
   if (!isDate(date) || date < "2026-01-01" || date > "2027-12-31") return $("error").textContent = "2026~2027년 날짜를 선택하세요.";
   if (until && until < date) return $("error").textContent = "반복 종료일은 시작 날짜 이후여야 합니다.";
-  if (!editing && !icon) { openPanel("iconbox"); place(editKey); return $("error").textContent = "아래에서 내 아이콘을 하나 고르세요. (처음 한 번)"; }
+  if (!editing && !icon) return $("error").textContent = "내 아이콘을 하나 고르세요. 다음부터는 자동 선택됩니다.";
   const data = { title, date, repeat, until, color: +$("form").elements.color.value };
   const latest = editing && events.find(e => e.id === editing.id);
   if (editing && !latest) return $("error").textContent = "다른 PC에서 삭제된 일정입니다.";
