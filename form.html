@@ -15,6 +15,7 @@ button{border:1px solid var(--line);background:#fff;color:var(--fg);border-radiu
 button:disabled{opacity:.5;cursor:default}
 .small{font-size:12.5px;color:var(--muted)}
 #msg{font-weight:700;min-height:1.6em}
+#search{box-sizing:border-box;width:100%;max-width:420px;margin:0 0 10px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit}
 .table{overflow-x:auto;border:1px solid #e6e7ea;border-radius:8px}
 table{width:100%;min-width:520px;border-collapse:collapse;font-size:14px}
 th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #e6e7ea}
@@ -42,6 +43,8 @@ main{padding-bottom:90px}
   </form>
   <p class="small">한글, PDF, 워드, 엑셀, 파워포인트 파일(10MB 이하)을 올릴 수 있습니다. 올린 파일은 누구나 보고 내려받을 수 있으니 개인정보가 담긴 파일은 올리지 마세요. <b>보기·인쇄</b>는 PDF·워드·엑셀·파워포인트에서 됩니다(오피스 문서는 Microsoft 온라인 뷰어를 사용). 한글(HWP) 파일은 PDF로 저장해 올리면 바로 볼 수 있습니다. 삭제하려면 비밀번호가 필요합니다.</p>
   <p id="msg" role="status"></p>
+  <input type="search" id="search" placeholder="🔍 파일명 검색" aria-label="파일명 검색" autocomplete="off" hidden>
+  <p class="small" id="found" role="status"></p>
   <div class="table" id="table" hidden><table>
     <thead><tr><th>파일명</th><th>크기</th><th>올린 날짜</th><th>보기·받기</th><th>삭제</th></tr></thead>
     <tbody id="rows"></tbody>
@@ -62,7 +65,20 @@ const BASE = API_URL.replace(/\/+$/, "");
 const $ = id => document.getElementById(id);
 const say = text => $("msg").textContent = text;
 let target = "";
+let all = [];
+// 띄어쓰기·대소문자 구분 없이, 여러 낱말은 모두 들어간 파일만
+const plain = text => String(text).normalize("NFC").toLowerCase().replace(/\s+/g, "");
 function show(files) {
+  all = files;
+  $("search").hidden = !all.length;
+  if (!all.length) $("search").value = "";
+  draw();
+  say(files.length ? "" : "아직 올라온 양식이 없습니다.");
+}
+function draw() {
+  const words = $("search").value.trim().split(/\s+/).filter(Boolean).map(plain);
+  const files = all.filter(f => words.every(w => plain(f.name).includes(w)));
+  $("found").textContent = words.length ? (files.length ? `검색 결과 ${files.length}개 / 전체 ${all.length}개` : "검색 결과가 없습니다.") : "";
   $("rows").replaceChildren(...files.map(f => {
     const tr = document.createElement("tr");
     [f.name, f.size < 1048576 ? `${Math.max(1, Math.round(f.size / 1024))} KB` : `${(f.size / 1048576).toFixed(1)} MB`,
@@ -88,8 +104,8 @@ function show(files) {
     return tr;
   }));
   $("table").hidden = !files.length;
-  say(files.length ? "" : "아직 올라온 양식이 없습니다.");
 }
+$("search").oninput = draw;
 async function call(path, options) {
   const response = await fetch(BASE + path, options);
   const result = await response.json();
