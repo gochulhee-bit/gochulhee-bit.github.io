@@ -71,7 +71,6 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
   main{max-width:1880px;padding:16px 32px 24px}
   h1{font-size:32px;margin:0 0 14px;padding:0}
   .layout{display:grid;grid-template-columns:minmax(460px,520px) minmax(0,1fr);gap:32px;align-items:start}
-  .side>p:first-child{font-size:14px}
   .label,.filters label,.holidays{font-size:13.5px}
   .date,.upload,.filters select{font-size:15px}
   hr{margin:18px 0 14px}
@@ -124,7 +123,6 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
   <h1>📋 자체점검</h1>
   <div class="layout">
   <div class="side">
-  <p style="font-size:12.5px"><b>기준 일시:</b> <span id="now"></span></p>
   <label class="label" for="base">기준 날짜 선택</label>
   <div class="date"><span id="shown"></span><input type="date" id="base" min="2026-02-01" max="2027-11-30"></div>
   <div id="mini" aria-label="날짜별 제출 대상 점검일 달력">
@@ -226,10 +224,6 @@ const $ = id => document.getElementById(id);
 const kst = () => new Date(Date.now() + 9 * 3600000).toISOString();
 const today = kst().slice(0, 10);
 let current, miniMonth;
-function tick() {
-  const t = kst();
-  $("now").textContent = `${t.slice(0,4)}년 ${t.slice(5,7)}월 ${t.slice(8,10)}일 ${t.slice(11,16)}`;
-}
 function render(s) {
   current = { date: s, ...calc(s) };
   $("shown").textContent = s.replaceAll("-", "/");
@@ -251,7 +245,7 @@ input.addEventListener("change", () => {
   if (inRange(input.value)) render(input.value);
   else { input.value = current.date; $("msg").textContent = "2026-02-01부터 2027-11-30까지의 날짜를 선택하세요."; }
 });
-tick(); setInterval(tick, 10000); render(input.value);
+render(input.value);
 // 작은 달력의 ◀ ▶ 는 보는 달만 바꾸고, "오늘"은 기준 날짜를 오늘로 되돌립니다
 const turnMonth = n => { const d = parse(`${miniMonth}-01`); d.setUTCMonth(d.getUTCMonth() + n); renderMini(current.date, iso(d).slice(0, 7)); };
 $("mprev").onclick = () => turnMonth(-1);
