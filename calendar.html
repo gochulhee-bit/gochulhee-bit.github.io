@@ -83,7 +83,7 @@ aside ul{margin:0;padding-left:18px}
 @media print{@page{size:landscape;margin:8mm}nav,aside,.tools,#prev,#next,#now,#results,.small,h1{display:none!important}main{padding:0}.layout{display:block}.day{min-height:100px!important}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 @media (min-width:1100px){
   .layout{grid-template-columns:minmax(0,1fr) 440px;align-items:start}
-  .day{min-height:max(84px,calc((100vh - 280px) / 6))}
+  .day{min-height:max(84px,calc((100vh - 310px) / 6))}
   aside{border-top:0;border-left:1px solid var(--line);padding:0 0 0 24px;max-height:calc(100vh - 170px);overflow:auto}
 }
 </style></head><body>
@@ -471,12 +471,6 @@ function detail() {
   if (!dates.length) box.push(el("p", isBiz(d) ? "계산 범위 밖의 날짜입니다." : "주말·공휴일이라 제출 대상이 없습니다."));
   else {
     box.push(el("p", `${dates.map(withDay).join(", ")} 점검분`));
-    const items = itemsFor(dates);
-    if (items.length) {
-      const ul = el("ul");
-      items.sort((a, b) => a.name.localeCompare(b.name, "ko")).forEach(r => ul.append(el("li", `[${r.kind}] ${r.name}`)));
-      box.push(el("p", `${items.length}건`, "count"), ul);
-    } else box.push(el("p", records.length ? "올려 둔 파일에 해당 자료가 없습니다." : "자체점검 페이지에서 파일을 올리면 대상이 표시됩니다.", "small"));
   }
   box.push(el("h3", "이 날 시작하는 이행기간"));
   if (selected > "2027-11-30") box.push(el("p", "휴일 자료 범위 밖이라 계산하지 않습니다."));
