@@ -26,7 +26,6 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .day.today b{background:var(--accent);color:#fff;border-radius:6px;padding:0 6px}
 .day[aria-pressed=true]{box-shadow:inset 0 0 0 2px var(--accent)}
 .due{color:var(--fg)}
-.count{background:var(--bluebg);color:var(--blue);border-radius:6px;padding:0 6px;font-weight:700}
 aside{border-top:1px solid var(--line);padding-top:16px}
 .day .chip{width:100%;box-sizing:border-box;border-radius:4px;padding:0 5px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
 .chip.done{text-decoration:line-through;opacity:.55}
@@ -36,7 +35,6 @@ aside{border-top:1px solid var(--line);padding-top:16px}
 .events .open .who,#results .who{margin-right:6px}
 .day .chip .who{margin-right:0}
 #icons span{font-size:18px;line-height:1.4;padding:0 1px}
-.duerow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tools input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:4px 10px;width:150px}
 .events{list-style:none;padding:0!important;display:grid;gap:6px}
@@ -109,7 +107,7 @@ aside ul{margin:0;padding-left:18px}
       <p id="status" class="small" role="status"></p>
       <ul class="events" id="results" hidden></ul>
       <div class="grid" id="grid"></div>
-      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다. 건수는 자체점검 페이지에 올려 둔 파일을 기준으로 합니다.<br>날짜를 두 번 누르면 바로 입력합니다. Enter 또는 바깥을 누르면 저장, Esc는 취소입니다. 일정을 두 번 누르면 수정합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
+      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다.<br>날짜를 두 번 누르면 바로 입력합니다. Enter 또는 바깥을 누르면 저장, Esc는 취소입니다. 일정을 두 번 누르면 수정합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
     </section>
     <aside id="detail" aria-live="polite"></aside>
   </div>
@@ -165,22 +163,6 @@ function dueDates(d) {               // d가 제출기한인 점검종료일들 
 const md = d => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 const withDay = d => `${iso(d)} (${"일월화수목금토"[d.getUTCDay()]})`;
 
-function loadRecords() {             // 자체점검 페이지에 저장한 파일 (중복은 한 번만)
-  try {
-    const most = new Map(), list = [];
-    for (const f of JSON.parse(localStorage.getItem("selfcheck.files.v1") || "[]")) {
-      const seen = new Map();
-      for (const r of f.records) {
-        const key = JSON.stringify([r.end, r.kind, r.name, r.address, r.company, r.phone]);
-        seen.set(key, (seen.get(key) || 0) + 1);
-        if (seen.get(key) > (most.get(key) || 0)) { most.set(key, seen.get(key)); list.push(r); }
-      }
-    }
-    return list;
-  } catch { return []; }
-}
-let records = loadRecords();
-const itemsFor = dates => { const set = new Set(dates.map(iso)); return records.filter(r => set.has(r.end)); };
 
 const $ = id => document.getElementById(id);
 const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
@@ -431,10 +413,7 @@ function render() {
     if (dates.length) {
       const line = el("span", null, "due");
       line.append(el("span", "점검 ", "long"), dates.length > 1 ? `${md(dates[0])}~${md(dates.at(-1))}` : md(dates[0]));
-      const row = el("span", null, "duerow"); row.append(line);
-      const n = itemsFor(dates).length;
-      if (n) row.append(el("span", `${n}건`, "count"));
-      b.append(row);
+      b.append(line);
     }
     const own = eventsOn(key);
     own.slice(0, 3).forEach(e => { const chip = el("span", null, "chip" + (e.done.includes(key) ? " done" : "")); chip.append(iconTag(e), el("span", e.title)); chip.dataset.id = e.id; paint(chip, e); b.append(chip); });
@@ -491,8 +470,7 @@ function move(step) {
 $("prev").onclick = () => move(-1);
 $("next").onclick = () => move(1);
 $("now").onclick = () => { const t = todayIso(); if (t.slice(0, 7) >= MIN && t.slice(0, 7) <= MAX) { selected = t; month = t.slice(0, 7); render(); } };
-addEventListener("storage", () => { records = loadRecords(); render(); });
-addEventListener("pageshow", () => { records = loadRecords(); render(); });
+addEventListener("pageshow", render);
 render();
 oldButton();
 refresh();
