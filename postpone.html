@@ -35,6 +35,8 @@ th{background:var(--field);font-weight:600;text-align:center}
 thead th{position:sticky;z-index:3;top:0;height:20px}
 thead tr+tr th{top:20px;height:28px;padding-right:20px}
 thead tr+tr th:first-child{padding:0}
+.title{display:block;overflow:hidden;text-overflow:ellipsis}
+.rename{position:absolute;inset:1px;width:calc(100% - 2px);box-sizing:border-box;padding:0 4px;border:2px solid var(--green);border-radius:0;font-weight:600;text-align:center;outline:0;user-select:text}
 thead .letters th{font-weight:400;font-size:11px;color:var(--muted);cursor:pointer}
 tbody th{position:sticky;left:0;z-index:2;font-weight:400;font-size:12px;color:var(--muted);cursor:pointer}
 thead th:first-child{left:0;z-index:4}
@@ -109,7 +111,7 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
       <div id="handle" title="끌어서 채우기"></div><button type="button" id="drop" tabindex="-1" title="목록에서 선택 (Alt+↓)" hidden>▼</button>
     </div>
     <div id="status"><span id="msg" role="status"></span><span id="sum"></span></div>
-    <p class="small"><b>누구나 보고 고칠 수 있는 공개 표입니다. 개인정보는 적지 마세요.</b> 칸을 한 번 누르면 바로 입력되며, 내용이 있는 칸은 뒤에 이어 써집니다(Esc로 취소). 지우려면 Delete를 두 번 누르세요. 약 5초마다 다른 사람의 변경이 반영됩니다. 같은 칸을 동시에 고치면 나중에 저장한 내용이 남습니다. 정렬·필터·열 너비는 내 화면에만 적용됩니다. 지난 내용은 보관되지 않으니 가끔 <b>엑셀 저장</b>으로 백업하세요. 오른쪽 클릭 메뉴, 수식(=SUM(A1:A3) 등), Ctrl+C·X·V·Z·D, F2(칸 수정)를 쓸 수 있습니다.</p>
+    <p class="small"><b>누구나 보고 고칠 수 있는 공개 표입니다. 개인정보는 적지 마세요.</b> 맨 위 제목(번호·신청일 등)은 빠르게 4번 누르면 고칠 수 있습니다. 칸을 한 번 누르면 바로 입력되며, 내용이 있는 칸은 뒤에 이어 써집니다(Esc로 취소). 지우려면 Delete를 두 번 누르세요. 약 5초마다 다른 사람의 변경이 반영됩니다. 같은 칸을 동시에 고치면 나중에 저장한 내용이 남습니다. 정렬·필터·열 너비는 내 화면에만 적용됩니다. 지난 내용은 보관되지 않으니 가끔 <b>엑셀 저장</b>으로 백업하세요. 오른쪽 클릭 메뉴, 수식(=SUM(A1:A3) 등), Ctrl+C·X·V·Z·D, F2(칸 수정)를 쓸 수 있습니다.</p>
   </div>
 </main>
 <script>
@@ -165,6 +167,9 @@ const filters = new Map();       // 열 → 보여 줄 값 Set
 let sorting = null;              // {c, dir}
 function reorder() { order = [...rows.values()].filter(r => !r.d && Number.isFinite(r.p)).sort((a, b) => a.p - b.p || (a.id < b.id ? -1 : 1)); }
 const raw = (i, c) => order[i]?.[`c${c}`] ?? "";
+// 제목 행: 바꾼 이름은 "_head"라는 특별한 행에 저장해 함께 봅니다 (c25 = 번호 열)
+const HEAD = "_head", NO = 25;
+const headName = c => rows.get(HEAD)?.[`c${c}`] || (c === NO ? "번호" : COLUMNS[c][0]);
 let indexById = new Map();
 function refreshView(again) {
   indexById = new Map(order.map((r, i) => [r.id, i]));
@@ -460,18 +465,54 @@ function head() {
   const letters = table.tHead.insertRow(), names = table.tHead.insertRow();
   letters.className = "letters";
   const th = (tr, text) => { const cell = document.createElement("th"); cell.textContent = text; tr.append(cell); return cell; };
-  th(letters, "").dataset.all = 1; th(names, "번호");
+  const title = (cell, c) => { const span = document.createElement("span"); span.className = "title"; span.textContent = headName(c); cell.textContent = ""; cell.dataset.head = c; cell.append(span); };
+  th(letters, "").dataset.all = 1; title(th(names, ""), NO);
   COLUMNS.forEach(([name], c) => {
     const top = th(letters, letter(c)); top.dataset.col = c;
     const grip = document.createElement("span"); grip.className = "grip"; grip.dataset.grip = c; top.append(grip);
-    const cell = th(names, name), b = document.createElement("button");
+    const cell = th(names, ""), b = document.createElement("button"); title(cell, c);
     b.type = "button"; b.className = "filter"; b.textContent = "▼"; b.dataset.filter = c; b.setAttribute("aria-label", `${name} 정렬·필터`);
     cell.append(b);
   });
   sizeTable();
 }
+function renderHead() {
+  for (const cell of table.tHead.rows[1].cells) {
+    const c = +cell.dataset.head, name = headName(c), span = cell.querySelector(".title");
+    if (span.textContent !== name) span.textContent = name;
+    cell.title = name.length > 8 ? name : "";
+    cell.querySelector(".filter")?.setAttribute("aria-label", `${name} 정렬·필터`);
+  }
+}
+// 제목 칸을 빠르게 4번 누르면 이름을 고칩니다. 비우면 원래 이름으로 돌아갑니다.
+function rename(cell) {
+  if (cell.querySelector(".rename")) return;
+  if (editing) endEdit(true);
+  const c = +cell.dataset.head, input = document.createElement("input"), before = headName(c);
+  input.className = "rename"; input.type = "text"; input.maxLength = 30; input.value = before; input.autocomplete = "off";
+  input.setAttribute("aria-label", "제목 수정");
+  let done = false;
+  const finish = save => {
+    if (done) return; done = true;
+    const value = input.value.trim(); input.remove();
+    if (save && online && value !== before) {
+      const original = c === NO ? "번호" : COLUMNS[c][0];
+      if (!rows.has(HEAD)) rows.set(HEAD, { id: HEAD });
+      commit(new Map([[HEAD, { [`c${c}`]: value && value !== original ? value : null }]]));
+    }
+    renderHead();
+  };
+  input.onblur = () => finish(true);
+  input.onkeydown = e => {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); finish(true); focusGrid(); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); focusGrid(); }
+  };
+  cell.append(input); input.focus(); input.select();
+}
 function render() {
   cache = new Map();
+  renderHead();
   const total = rowCount();
   while (body.rows.length > total) body.deleteRow(-1);
   while (body.rows.length < total) {
@@ -832,7 +873,7 @@ $("findclose").onclick = closeFind;
 // ───── 마우스 ─────
 sheet.addEventListener("mousedown", e => {
   const t = e.target;
-  if (t === ed) return;
+  if (t === ed || t.classList.contains("rename")) return;
   closeMenu();
   if (t.id === "drop") { e.preventDefault(); return; }
   if (t.dataset.filter !== undefined) { e.preventDefault(); return; }
@@ -892,10 +933,12 @@ function drop() {
 }
 addEventListener("mouseup", drop);
 sheet.addEventListener("dblclick", e => {
-  if (e.target.dataset.grip !== undefined) { const c = +e.target.dataset.grip; widths[c] = Math.max(60, Math.min(600, Math.max(textWidth(COLUMNS[c][0]) + 40, ...order.map((_, i) => textWidth(display(i, c)) + 16)))); sizeTable(); store("postpone.widths", widths); return place(); }
+  if (e.target.dataset.grip !== undefined) { const c = +e.target.dataset.grip; widths[c] = Math.max(60, Math.min(600, Math.max(textWidth(headName(c)) + 40, ...order.map((_, i) => textWidth(display(i, c)) + 16)))); sizeTable(); store("postpone.widths", widths); return place(); }
   if (e.target.closest("td")) startEdit(false);
 });
 sheet.addEventListener("click", e => {
+  const title = e.target.closest("th[data-head]");
+  if (title && e.detail === 4 && !e.target.closest("button,input")) return rename(title);
   if (e.target.dataset.filter !== undefined) { if (editing) endEdit(true); filterMenu(+e.target.dataset.filter, e.target); }
   if (e.target.id === "drop") dropdown();
 });
@@ -1041,7 +1084,7 @@ function workbook(count) {
     return value ? text(ref, value, styleId(style, false)) : `<c r="${ref}" s="${styleId(style, false)}"/>`;
   };
   cache = new Map();
-  const header = ["번호", ...COLUMNS.map(c => c[0])];
+  const header = [headName(NO), ...COLUMNS.map((_, c) => headName(c))];
   const data = [`<row r="1" ht="22" customHeight="1">${header.map((v, i) => text(`${letter(i)}1`, v, 1)).join("")}</row>`];
   for (let i = 0; i < count; i++) data.push(`<row r="${i + 2}"><c r="A${i + 2}" s="${styleId("", false)}"><v>${i + 1}</v></c>${COLUMNS.map((_, c) => cell(i, c)).join("")}</row>`);
   const last = `${letter(header.length - 1)}${count + 1}`;
@@ -1147,7 +1190,7 @@ const label = v => String(v ?? "").replace(/\s/g, "");
 function pick(table, mac) {
   for (let h = 0; h < Math.min(table.length, 20); h++) {
     const names = Array.from(table[h], label);
-    const at = COLUMNS.map(([name, , , , other]) => [name, ...other].map(label).map(n => names.indexOf(n)).find(i => i >= 0) ?? -1);
+    const at = COLUMNS.map(([name, , , , other], c) => [headName(c), name, ...other].map(label).map(n => names.indexOf(n)).find(i => i >= 0) ?? -1);
     if (at.filter(i => i >= 0).length < 2) continue;
     return table.slice(h + 1).map(line => at.map((i, c) => i < 0 ? "" : clean(line[i] ?? "", c, mac).trim())).filter(r => r.some(v => v !== ""));
   }
