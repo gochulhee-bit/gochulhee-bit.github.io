@@ -56,7 +56,8 @@ dialog button{padding:0}
 .tool[aria-pressed=true],.tool[aria-expanded=true]{background:#e2e4ea}
 #fdelete{margin-left:auto;font-size:14px;width:auto;min-width:34px;padding:0 6px}
 .panel,.pick{padding:7px 10px;border-top:1px solid var(--line)}
-.pick .swatches{gap:3px}
+.pick .swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.pick .swatches span{text-align:center}
 #swatches span{font-size:12px;padding:1px 5px}
 .panel label{display:block;font-size:12px;margin-top:4px}
 .panel input[type=date],.panel select{box-sizing:border-box;width:100%;font:inherit;padding:3px 8px;border:1px solid var(--line);border-radius:6px}
@@ -195,8 +196,8 @@ const CACHE = "calendar.cache.v2";       // 서버에 접속하지 못할 때 �
 const MYICON = "calendar.icon";
 const MYCOLOR = "calendar.color";
 const WORDS = { "종합": "w1", "작동": "w2", "완비": "w3" };   // 글자 아이콘
-const ICONS = [...Object.keys(WORDS), "🚒","🧯","🦊","🐳","🐻","🐰","🐯","🐶","🐱","🐼","🦁","🐸","⭐","🍀","🌙","⚽"];
-const COLORS = [["파랑","#dcebff","#0b4f8a"],["초록","#dcf4e1","#1b6b32"],["노랑","#fff2c2","#6b5200"],["빨강","#ffdede","#a11d25"],["보라","#ece2ff","#52309a"],["회색","#e9eaee","#31333f"]];
+const ICONS = [...Object.keys(WORDS), "🚒","🧯","⭐","🦊","🐳","🐻","🍀"];
+const COLORS = [["파랑","#dcebff","#0b4f8a"],["초록","#dcf4e1","#1b6b32"],["노랑","#fff2c2","#6b5200"],["빨강","#ffdede","#a11d25"],["보라","#ece2ff","#52309a"],["회색","#e9eaee","#31333f"],["주황","#ffe3c7","#8a3f00"],["분홍","#ffdcec","#98185c"],["청록","#d3f1f1","#0b6366"],["갈색","#ecdfd3","#5e3d1e"]];
 const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parse(s)) && iso(parse(s)) === s;
 function clean(list) {               // 저장·백업 자료 중 올바른 일정만
   return (Array.isArray(list) ? list : []).filter(e => e && typeof e.id === "string" && typeof e.title === "string" && e.title && isDate(e.date)).map(e => ({
@@ -270,7 +271,7 @@ function eventRow(e, key, label) {   // 목록 한 줄: 완료 체크 + 내용(�
 }
 let editing = null, editKey = "", before = "", saving = false;
 const snapshot = () => JSON.stringify([$("ftext").value.trim(), $("fdate").value, $("frepeat").value, $("funtil").value,
-  $("form").elements.color.value, $("fdone").getAttribute("aria-pressed")]);
+  $("form").elements.color.value, $("form").elements.icon.value, $("fdone").getAttribute("aria-pressed")]);
 function openPanel(id) {
   document.querySelectorAll("#editor .panel").forEach(p => p.hidden = p.id !== id);
   document.querySelectorAll("#editor [data-panel]").forEach(b => b.setAttribute("aria-expanded", b.dataset.panel === id));
@@ -298,9 +299,8 @@ function edit(e, key) {
   const colors = $("swatches").querySelectorAll("input");
   (colors[e?.color ?? color] ?? colors[0]).checked = true;   // 새 일정은 지난번 색상
   $("fdone").setAttribute("aria-pressed", !!e?.done.includes(key));
-  $("iconbox").hidden = !!e;       // 입력자 아이콘은 처음 값 그대로
   let mine = ""; try { mine = localStorage.getItem(MYICON) || ""; } catch {}
-  $("icons").querySelectorAll("input").forEach(i => i.checked = i.value === mine);
+  $("icons").querySelectorAll("input").forEach(i => i.checked = i.value === (e ? e.icon : mine));
   $("fdelete").hidden = !e; $("fdelete").textContent = "🗑️"; delete $("fdelete").dataset.sure;
   $("error").textContent = "";
   openPanel("");
@@ -310,7 +310,7 @@ function edit(e, key) {
 $("icons").append(...ICONS.map(icon => {
   const label = el("label"), input = el("input");
   input.type = "radio"; input.name = "icon"; input.value = icon;
-  input.onchange = () => { store(MYICON, icon); $("error").textContent = ""; $("ftext").focus(); };
+  input.onchange = () => { if (!editing) store(MYICON, icon); $("error").textContent = ""; $("ftext").focus(); };
   label.append(input, el("span", icon, WORDS[icon] ? `word ${WORDS[icon]}` : "")); return label;
 }));
 $("swatches").append(...COLORS.map(([name, bg, fg], i) => {
@@ -329,7 +329,7 @@ $("fdone").onclick = () => $("fdone").setAttribute("aria-pressed", $("fdone").ge
 async function submit(stay) {        // stay: 저장 후 그 날짜를 선택
   if (saving) return;
   const title = $("ftext").value.trim(), date = $("fdate").value, repeat = $("frepeat").value, until = repeat ? $("funtil").value : "";
-  const icon = $("form").elements.icon.value, done = $("fdone").getAttribute("aria-pressed") === "true";
+  const icon = $("form").elements.icon.value || editing?.icon || "", done = $("fdone").getAttribute("aria-pressed") === "true";
   if (snapshot() === before && (editing || !title)) return closeEditor();
   if (!title) return $("error").textContent = "내용을 입력하세요.";
   if (!isDate(date) || date < "2026-01-01" || date > "2027-12-31") return $("error").textContent = "2026~2027년 날짜를 선택하세요.";
@@ -340,11 +340,14 @@ async function submit(stay) {        // stay: 저장 후 그 날짜를 선택
   if (editing && !latest) return $("error").textContent = "다른 PC에서 삭제된 일정입니다.";
   const day = !editing || (!repeat && date !== editKey) ? date : editKey;   // 완료 표시를 할 날짜
   const kept = latest && latest.date === date && latest.repeat === repeat ? latest.done.filter(x => x !== day) : [];
-  const item = { ...(latest ?? { id: newId(), icon }), ...data, done: done ? [...kept, day] : kept };
+  const item = { ...(latest ?? { id: newId() }), ...data, icon, done: done ? [...kept, day] : kept };
   saving = true; $("save").disabled = true; $("error").textContent = "저장 중입니다…";
   try {
     await send("/events/save", item);
-    say(""); closeEditor();
+    const stored = events.find(e => e.id === item.id);
+    say(stored && (stored.color !== item.color || stored.icon !== item.icon)
+      ? "색상·아이콘 일부가 저장되지 않았습니다. Cloudflare 서버 코드를 새 파일로 바꿔 주세요." : "");
+    closeEditor();
     if (stay) { selected = day; month = day.slice(0, 7); render(); }
   } catch (error) { $("error").textContent = error.message; $("save").disabled = false; }
   saving = false;
