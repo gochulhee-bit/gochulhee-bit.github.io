@@ -12,15 +12,18 @@ p{margin:0}
 .label{display:block;font-size:12px;margin:14px 0 4px}
 .date{position:relative;background:var(--field);border-radius:8px;padding:6px 11px;font-size:12.5px;border:1px solid transparent}
 .date:focus-within{border-color:var(--accent)}
-#mini{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:8px}
-#mini table{width:224px;min-width:0;table-layout:fixed;border-collapse:collapse;text-align:center;font-size:12px;line-height:18px}
-#mini caption{font-weight:700;font-size:12.5px;padding-bottom:2px}
-#mini th,#mini td{border:0;padding:1px 0;text-align:center;background:none}
-#mini th{font-weight:400;color:var(--muted);font-size:11px}
-#mini span{display:inline-block;width:24px;border-radius:9px}
+#mini{margin-top:8px}
+#mini table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse}
+#mini caption{font-weight:700;font-size:13px;padding-bottom:3px}
+#mini th,#mini td{border:1px solid var(--tline,#e6e7ea);background:none;white-space:nowrap;overflow:hidden}
+#mini th{font-weight:400;color:var(--muted);font-size:11px;line-height:16px;padding:0;text-align:center}
+#mini td{height:29px;padding:0 2px 0 3px;vertical-align:top;text-align:left;line-height:13px}
+#mini b{display:block;font-size:12px}
+#mini small{display:block;font-size:10px;letter-spacing:-.3px;text-overflow:ellipsis;overflow:hidden}
 #mini .sun{color:var(--red,#d9363e)}
 #mini .sat{color:var(--blue,#1c6fc4)}
-#mini .hit span{background:#ff4b4b;color:#fff;font-weight:700}
+#mini .pick{box-shadow:inset 0 0 0 2px #ff4b4b}
+@media (max-width:640px){#mini td{height:44px;padding-inline:1px}#mini small{white-space:normal;word-break:break-all;line-height:11px;font-size:9px}}
 .date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;font-size:16px}
 hr{border:0;border-top:1px solid var(--line);margin:38px 0 26px}
 .headline{font-size:18.5px;font-weight:700;line-height:1.25;margin:18px 0 20px;word-break:keep-all;white-space:pre-line}
@@ -107,6 +110,8 @@ button:hover,button:focus-visible{border-color:var(--accent);color:var(--accent)
 .pages,main>nav{position:fixed;z-index:20;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0;padding:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
 main{padding-bottom:76px}
 @media (min-width:1100px){main{padding-bottom:64px}#xtable{max-height:max(240px,calc(100vh - 615px))}}
+/* 작은 달력이 한 화면에 들어오도록 왼쪽 칸의 간격을 줄입니다 */
+@media (min-width:1100px){.side hr{margin:9px 0 7px}.side h2{margin:0 0 6px;font-size:20px}.side p{margin-block:5px}.side .due{padding-block:5px}.side details{margin-block:4px}}
 /* 왼쪽 아래 페이지 버튼: 세 페이지 모두 같은 크기 */
 body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
 </style>
@@ -119,7 +124,7 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
   <p style="font-size:12.5px"><b>기준 일시:</b> <span id="now"></span></p>
   <label class="label" for="base">기준 날짜 선택</label>
   <div class="date"><span id="shown"></span><input type="date" id="base" min="2026-02-01" max="2027-11-30"></div>
-  <div id="mini" aria-label="오늘 제출해야 하는 점검일 달력"></div>
+  <div id="mini" aria-label="날짜별 제출 대상 점검일 달력"></div>
   <hr>
   <div class="due">📮 <span id="dueTitle">오늘</span> 제출해야 하는 보고서</div>
   <p class="headline" id="due"></p>
@@ -250,32 +255,38 @@ function dueToday(s) {               // 제출기한이 s인 점검 종료일 (�
   const counted = Array.from({ length: 15 }, (_, i) => shiftBiz(base, -(i + 1)));
   return { dates, counted };
 }
-// 작은 달력: 선택한 날에 제출해야 하는 점검일만 표시합니다 (두 달에 걸치면 두 달)
-function renderMini(s, dates) {
-  const hits = new Set(dates.map(iso));
-  const months = [...new Set((dates.length ? [...hits] : [s]).map(d => d.slice(0, 7)))];
-  $("mini").replaceChildren(...months.map(month => {
-    const table = document.createElement("table"), first = parse(`${month}-01`);
-    table.createCaption().textContent = `${first.getUTCFullYear()}년 ${first.getUTCMonth() + 1}월`;
-    const head = table.createTHead().insertRow();
-    [..."일월화수목금토"].forEach((name, i) => { const th = document.createElement("th"); th.textContent = name; th.className = i === 0 ? "sun" : i === 6 ? "sat" : ""; head.append(th); });
-    const body = table.createTBody();
-    let row = body.insertRow();
-    for (let i = 0; i < first.getUTCDay(); i++) row.insertCell();
-    for (let d = first; iso(d).startsWith(month); d = add(d, 1)) {
-      if (d.getUTCDay() === 0 && d.getUTCDate() > 1) row = body.insertRow();
-      const cell = row.insertCell(), day = document.createElement("span"), date = iso(d);
-      day.textContent = d.getUTCDate(); cell.append(day);
-      if (hits.has(date)) { cell.className = "hit"; cell.title = `${withDay(d)} 점검분 제출`; }
-      else if (d.getUTCDay() === 0 || HOLIDAYS.has(date)) cell.className = "sun";
-      else if (d.getUTCDay() === 6) cell.className = "sat";
+// 작은 달력: 선택한 날이 있는 한 달. 날짜 밑의 "점검 M/D"는 그날이 제출기한인 점검 종료일
+function md(d) { return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; }
+function renderMini(s) {
+  const month = s.slice(0, 7), first = parse(`${month}-01`);
+  const table = document.createElement("table");
+  table.createCaption().textContent = `${first.getUTCFullYear()}년 ${first.getUTCMonth() + 1}월`;
+  const head = table.createTHead().insertRow();
+  [..."일월화수목금토"].forEach((name, i) => { const th = document.createElement("th"); th.textContent = name; th.className = i === 0 ? "sun" : i === 6 ? "sat" : ""; head.append(th); });
+  const body = table.createTBody();
+  let row = body.insertRow();
+  for (let i = 0; i < first.getUTCDay(); i++) row.insertCell();
+  for (let d = first; iso(d).startsWith(month); d = add(d, 1)) {
+    if (d.getUTCDay() === 0 && d.getUTCDate() > 1) row = body.insertRow();
+    const cell = row.insertCell(), day = document.createElement("b"), date = iso(d);
+    day.textContent = d.getUTCDate(); cell.append(day);
+    day.className = d.getUTCDay() === 0 || HOLIDAYS.has(date) ? "sun" : d.getUTCDay() === 6 ? "sat" : "";
+    if (date === s) cell.className = "pick";
+    const dates = date >= "2026-02-01" ? dueToday(date)?.dates : null;
+    if (dates) {
+      const line = document.createElement("small");
+      const end = dates.at(-1), sameMonth = end.getUTCMonth() === dates[0].getUTCMonth();   // 칸이 좁아 짧게: 10/16~18
+      line.textContent = dates.length === 1 ? `점검 ${md(dates[0])}` : sameMonth ? `점검 ${md(dates[0])}~${end.getUTCDate()}` : `${md(dates[0])}~${md(end)}`;
+      cell.title = `제출 대상 점검일: ${dates.map(withDay).join(", ")}`;
+      cell.append(line);
     }
-    return table;
-  }));
+  }
+  while (row.cells.length < 7) row.insertCell();
+  $("mini").replaceChildren(table);
 }
 function renderDue(s) {
   const info = dueToday(s), isToday = s === kst().slice(0, 10);
-  renderMini(s, info?.dates ?? []);
+  renderMini(s);
   $("dueTitle").textContent = isToday ? "오늘" : s;
   current.due = info
     ? info.dates.map(withDay).join("\n")
