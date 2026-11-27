@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>파일 보기</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>★★★★★</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src https://cdn.jsdelivr.net https://selfchek-api.toorang2.workers.dev; img-src blob: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <style>
 :root{color-scheme:light}
@@ -287,7 +287,9 @@ const fail = e => { console.error(e); say(e instanceof Failure ? e.message : "�
 async function open() {
   const query = new URLSearchParams(location.search), id = query.get("id") || "", name = query.get("name") || "파일";
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Failure("파일 주소가 올바르지 않습니다. 양식 목록에서 다시 눌러 주세요.");
-  $("name").textContent = name; document.title = name;
+  $("name").textContent = name; // 탭 이름은 별로 고정하고, 인쇄(PDF 저장)할 때만 파일 이름을 씁니다.
+addEventListener("beforeprint", () => document.title = name);
+addEventListener("afterprint", () => document.title = "★★★★★");
   $("download").href = `${API}/file/${id}`; $("download").hidden = false;
 
   let bytes;
