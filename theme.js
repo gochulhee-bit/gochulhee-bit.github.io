@@ -12,21 +12,21 @@
 :root[data-theme="dark"] :is(input[type=search],textarea,.tools input,.panel input,.panel select){background:var(--field);color:var(--fg)}}
 #theme{position:absolute;z-index:25;top:calc(6px + env(safe-area-inset-top,0px));right:calc(8px + env(safe-area-inset-right,0px));
 display:flex;gap:2px;padding:1px;border:1px solid #3c3c3c;border-radius:2px;background:#eaeaea}
-#theme button{display:block;width:20px;height:20px;min-width:0;margin:0;padding:0;border:1px solid #031333;border-radius:2px;line-height:0;cursor:pointer}
-#theme button[data-mode="light"]{background:#5a7f68}
-#theme button[data-mode="dark"]{background:#031333}
+#theme button{display:block;width:20px;height:20px;min-width:0;margin:0;padding:0;border:1px solid #000;border-radius:2px;line-height:0;cursor:pointer}
+#theme button[data-mode="light"]{background:#fff;color:#000}
+#theme button[data-mode="dark"]{background:#000;color:#fff}
 #theme button:focus-visible{outline:2px solid #ff4b4b;outline-offset:1px}
 #theme svg{visibility:hidden}
 #theme [aria-pressed="true"] svg{visibility:visible}
 @media print{#theme{display:none}}`;
   document.head.append(style);
-  // 왼쪽 초록 칸 = 밝은 화면, 오른쪽 남색 칸 = 다크 모드. 선택한 칸에 ✓ 표시
+  // 왼쪽 흰색 칸 = 밝은 화면, 오른쪽 검은색 칸 = 다크 모드. 선택한 칸에 ✓ 표시
   const box = document.createElement("div");
   box.id = "theme"; box.setAttribute("role", "group"); box.setAttribute("aria-label", "화면 색상");
   const buttons = [["light", "밝은 화면"], ["dark", "다크 모드"]].map(([mode, label]) => {
     const b = document.createElement("button");
     b.type = "button"; b.dataset.mode = mode; b.title = label; b.setAttribute("aria-label", label);
-    b.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 9.5 8.3 13 13.5 6" fill="none" stroke="#fff" stroke-width="2.6"/></svg>';
+    b.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 9.5 8.3 13 13.5 6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>';
     b.onclick = () => { apply(mode === "dark"); try { localStorage.setItem(KEY, mode); } catch {} };
     box.append(b); return b;
   });
@@ -35,6 +35,8 @@ display:flex;gap:2px;padding:1px;border:1px solid #3c3c3c;border-radius:2px;back
     buttons.forEach(b => b.setAttribute("aria-pressed", (b.dataset.mode === "dark") === dark));
   };
   apply(saved === "dark");
+  // "뒤로 가기"로 돌아온 페이지에도 마지막 선택을 다시 적용
+  addEventListener("pageshow", () => { try { apply(localStorage.getItem(KEY) === "dark"); } catch {} });
   addEventListener("storage", e => { if (e.key === KEY) apply(e.newValue === "dark"); });   // 열려 있는 다른 탭에도 적용
   addEventListener("DOMContentLoaded", () => document.body.append(box));
 })();
