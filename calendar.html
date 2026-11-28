@@ -73,9 +73,11 @@ dialog button{padding:0}
 #error{color:var(--red);margin:0;padding:0 10px;font-size:12px}
 .word{display:inline-block;border-radius:4px;color:#fff!important;font-weight:700;white-space:nowrap}
 .w1{background:#c92f36!important}.w2{background:#0b62a8!important}.w3{background:#1b7a38!important}
+.w4{background:#6d3fb0!important}.w5{background:#a84b00!important}.w6{background:#0b7075!important}.w7{background:#a81d68!important}.w8{background:#76502c!important}.w9{background:#3a3d49!important}
 .day .chip .who.word{font-size:10px;line-height:15px;padding:0 3px;margin-right:3px}
 .events .open .who.word,#results .who.word{font-size:11px;line-height:17px;padding:0 5px}
 #icons span.word{font-size:12px;line-height:20px;padding:2px 6px}
+#icons input:checked+span.word{box-shadow:0 0 0 2px var(--accent)}
 #error:not(:empty){padding-block:6px}
 .events .open{white-space:pre-line}
 aside h2{font-size:20px;margin:0 0 8px}
@@ -181,8 +183,8 @@ const EVENTS = "calendar.events.v1";     // 서버 연결 전에 이 브라우�
 const CACHE = "calendar.cache.v2";       // 서버에 접속하지 못할 때 보여줄 마지막 일정
 const MYICON = "calendar.icon";
 const MYCOLOR = "calendar.color";
-const WORDS = { "종합": "w1", "작동": "w2", "완비": "w3" };   // 글자 아이콘
-const ICONS = [...Object.keys(WORDS), "🚒","🧯","⭐","🦊","🐳","🐻","🍀"];
+const WORDS = { "종합": "w1", "작동": "w2", "완비": "w3", "검계": "w4", "화조1": "w5", "화조2": "w6", "화조3": "w7", "화조4": "w8", "검팀장": "w9" };   // 글자 아이콘
+const ICONS = Object.keys(WORDS);    // 예전에 쓴 그림 아이콘은 기존 일정에 그대로 표시됩니다
 const COLORS = [["파랑","#dcebff","#0b4f8a"],["초록","#dcf4e1","#1b6b32"],["노랑","#fff2c2","#6b5200"],["빨강","#ffdede","#a11d25"],["보라","#ece2ff","#52309a"],["회색","#e9eaee","#31333f"],["주황","#ffe3c7","#8a3f00"],["분홍","#ffdcec","#98185c"],["청록","#d3f1f1","#0b6366"],["갈색","#ecdfd3","#5e3d1e"]];
 const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parse(s)) && iso(parse(s)) === s;
 function clean(list) {               // 저장·백업 자료 중 올바른 일정만
