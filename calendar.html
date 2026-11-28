@@ -184,7 +184,7 @@ const CACHE = "calendar.cache.v2";       // 서버에 접속하지 못할 때 �
 const MYICON = "calendar.icon";
 const MYCOLOR = "calendar.color";
 const WORDS = { "종합": "w1", "작동": "w2", "완비": "w3", "검계": "w4", "화조1": "w5", "화조2": "w6", "화조3": "w7", "화조4": "w8", "검팀장": "w9" };   // 글자 아이콘
-const ICONS = Object.keys(WORDS);    // 예전에 쓴 그림 아이콘은 기존 일정에 그대로 표시됩니다
+const ICONS = [...Object.keys(WORDS), "🚒"];   // 그 밖의 예전 그림 아이콘은 기존 일정에 그대로 표시됩니다
 const COLORS = [["파랑","#dcebff","#0b4f8a"],["초록","#dcf4e1","#1b6b32"],["노랑","#fff2c2","#6b5200"],["빨강","#ffdede","#a11d25"],["보라","#ece2ff","#52309a"],["회색","#e9eaee","#31333f"],["주황","#ffe3c7","#8a3f00"],["분홍","#ffdcec","#98185c"],["청록","#d3f1f1","#0b6366"],["갈색","#ecdfd3","#5e3d1e"]];
 const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parse(s)) && iso(parse(s)) === s;
 function clean(list) {               // 저장·백업 자료 중 올바른 일정만
