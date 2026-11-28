@@ -37,8 +37,13 @@ aside{border-top:1px solid var(--line);padding-top:16px}
 #icons span{font-size:18px;line-height:1.4;padding:0 1px}
 .tools{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tools input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:4px 10px;width:150px}
+#filter{display:flex;flex-wrap:wrap;gap:4px}
+#filter button{display:flex;align-items:center;justify-content:center;min-width:36px;height:32px;padding:0 4px;font-size:18px;line-height:1}
+#filter button[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent);background:var(--press,#e2e4ea)}
+#filter .word{font-size:12px;line-height:20px;padding:0 5px}
 .events{list-style:none;padding:0!important;display:grid;gap:6px}
 aside .events{margin-bottom:8px}
+.events[hidden]{display:none}
 .events li{display:flex;align-items:center;gap:8px}
 .events button{padding:1px 10px;text-align:left}
 .events .open{flex:1;min-width:0;overflow-wrap:anywhere;border-color:transparent}
@@ -98,18 +103,15 @@ body nav a[href]{padding:2px 14px;font-size:14px;line-height:22px}
         <button type="button" id="now">오늘</button>
         <div class="tools">
           <input type="search" id="search" placeholder="일정 검색" aria-label="일정 검색">
-          <button type="button" id="new">＋ 일정</button>
-          <button type="button" id="print">인쇄</button>
-          <button type="button" id="export">백업</button>
-          <button type="button" id="import">불러오기</button>
+          <div id="filter" role="group" aria-label="아이콘별 일정 보기"></div>
+          <button type="button" id="reset">초기화</button>
           <button type="button" id="old" hidden></button>
-          <input type="file" id="importfile" accept=".json,application/json" hidden>
         </div>
       </div>
       <p id="status" class="small" role="status"></p>
       <ul class="events" id="results" hidden></ul>
       <div class="grid" id="grid"></div>
-      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다.<br>날짜를 두 번 누르면 바로 입력합니다. Enter 또는 바깥을 누르면 저장, Esc는 취소입니다. 입력칸에서 Ctrl+; 는 오늘 날짜, Ctrl+Shift+; 는 현재 시간을 넣습니다. 일정을 두 번 누르면 수정합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
+      <p class="small">"점검 11/5"는 그날이 제출기한인 점검종료일입니다.<br>위쪽 아이콘을 누르면 그 아이콘의 일정만 보이고, 초기화를 누르면 모든 일정이 보입니다.<br>날짜를 두 번 누르면 바로 입력합니다. Enter 또는 바깥을 누르면 저장, Esc는 취소입니다. 입력칸에서 Ctrl+; 는 오늘 날짜, Ctrl+Shift+; 는 현재 시간을 넣습니다. 일정을 두 번 누르면 수정합니다. 일정은 서버에 저장되어 누구나 보고 고칠 수 있으니 개인정보는 적지 마세요. 아이콘은 입력한 사람의 표시입니다.</p>
     </section>
     <aside id="detail" aria-live="polite"></aside>
   </div>
@@ -236,7 +238,9 @@ function occurs(e, key) {
   if (e.repeat === "week") return (parse(key) - parse(e.date)) % (7 * 86400000) === 0;
   return e.repeat === "month" ? key.slice(8) === e.date.slice(8) : key.slice(5) === e.date.slice(5);
 }
-const eventsOn = key => events.filter(e => occurs(e, key));
+let only = "";                       // 선택한 아이콘 (비어 있으면 모든 일정)
+const shown = e => !only || e.icon === only;
+const eventsOn = key => events.filter(e => shown(e) && occurs(e, key));
 const paint = (node, e) => { node.style.background = COLORS[e.color][1]; node.style.color = COLORS[e.color][2]; };
 const REPEAT = { week: "매주", month: "매월", year: "매년" };
 function eventRow(e, key, label) {   // 목록 한 줄: 완료 체크 + 내용(누르면 수정)
@@ -262,7 +266,7 @@ function openPanel(id) {
 }
 function place(key) {                // 누른 날짜 칸 위에 입력칸을 띄움
   const box = $("editor"), root = document.documentElement;
-  const cell = $("grid").querySelector(`[data-date="${key}"]`) || $("new");
+  const cell = $("grid").querySelector(`[data-date="${key}"]`) || $("grid");
   const r = cell.getBoundingClientRect();
   const left = Math.max(8, Math.min(r.left, root.clientWidth - box.offsetWidth - 8));
   const top = Math.max(8, Math.min(r.top, root.clientHeight - box.offsetHeight - 8));
@@ -331,6 +335,7 @@ async function submit(stay) {        // stay: 저장 후 그 날짜를 선택
     const stored = events.find(e => e.id === item.id);
     say(stored && (stored.color !== item.color || stored.icon !== item.icon)
       ? "색상·아이콘 일부가 저장되지 않았습니다. Cloudflare 서버 코드를 새 파일로 바꿔 주세요." : "");
+    if (stored && !shown(stored)) say(`저장했습니다. 지금은 ${only} 일정만 표시 중입니다. 초기화를 누르면 모두 보입니다.`);
     closeEditor();
     if (stay) { selected = day; month = day.slice(0, 7); render(); }
   } catch (error) { $("error").textContent = error.message; $("save").disabled = false; }
@@ -358,7 +363,7 @@ function search() {
   const q = $("search").value.trim().toLowerCase();
   $("results").hidden = !q;
   if (!q) return;
-  const found = events.filter(e => e.title.toLowerCase().includes(q)).sort((a, b) => a.date.localeCompare(b.date));
+  const found = events.filter(e => shown(e) && e.title.toLowerCase().includes(q)).sort((a, b) => a.date.localeCompare(b.date));
   $("results").replaceChildren(...found.map(e => {
     const b = el("button", `${e.date} ${REPEAT[e.repeat] ? `(${REPEAT[e.repeat]}) ` : ""}${e.title}`, "open");
     b.type = "button"; paint(b, e); b.prepend(iconTag(e));
@@ -368,22 +373,18 @@ function search() {
   if (!found.length) $("results").append(el("li", "검색 결과가 없습니다."));
 }
 $("search").oninput = search;
-$("new").onclick = () => edit(null, selected);
-$("print").onclick = () => print();
-$("export").onclick = () => {
-  const a = el("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(events, null, 1)], { type: "application/json" }));
-  a.download = `일정백업_${todayIso()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-};
-$("import").onclick = () => $("importfile").click();
-$("importfile").onchange = async () => {
-  const file = $("importfile").files[0]; $("importfile").value = "";
-  if (!file) return;
-  let incoming;
-  try { incoming = clean(JSON.parse(await file.text())); if (!incoming.length) throw new Error(); }
-  catch { return say("일정 백업 파일을 읽지 못했습니다."); }
-  upload(incoming);
-};
+function filterBy(icon) {            // 아이콘을 누르면 그 아이콘의 일정만, 빈 값이면 모두
+  only = icon; say("");
+  $("filter").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.icon === only));
+  render(); search();
+}
+$("filter").append(...ICONS.map(icon => {
+  const b = el("button"); b.type = "button"; b.dataset.icon = icon; b.title = `${icon} 일정만 보기`;
+  b.setAttribute("aria-label", b.title); b.setAttribute("aria-pressed", false);
+  b.append(el("span", icon, WORDS[icon] ? `word ${WORDS[icon]}` : ""));
+  b.onclick = () => filterBy(icon); return b;
+}));
+$("reset").onclick = () => { $("search").value = ""; filterBy(""); };
 async function upload(list) {        // 여러 일정을 서버에 하나씩 저장
   let done = 0;
   try {
@@ -445,7 +446,7 @@ function detail() {
     const ul = el("ul", null, "events");
     own.forEach(e => ul.append(eventRow(e, selected, (e.repeat ? "🔁 " : "") + e.title)));
     box.push(ul);
-  } else box.push(el("p", "등록한 일정이 없습니다.", "small"));
+  } else box.push(el("p", only ? `${only} 아이콘으로 등록한 일정이 없습니다.` : "등록한 일정이 없습니다.", "small"));
   const addButton = el("button", "＋ 일정 추가"); addButton.type = "button"; addButton.onclick = () => edit(null, selected);
   box.push(addButton);
   box.push(el("h3", "제출해야 하는 보고서"));
