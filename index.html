@@ -215,7 +215,7 @@ function calc(s) {
   return {
     rows: [["10일", 10], ["20일", 20]].map(([name, days]) => {
       const end = add(base, days - 1);   // 시작일 포함
-      return [name, s, iso(end), withDay(shiftBiz(end, 10))];
+      return [name, withDay(parse(s)), withDay(end), withDay(shiftBiz(end, 10))];
     })
   };
 }
